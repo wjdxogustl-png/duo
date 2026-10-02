@@ -2,6 +2,7 @@
 
 실행: (backend 폴더에서) uvicorn app.main:app --reload --port 8000
 """
+import json
 import logging
 
 from dotenv import load_dotenv
@@ -15,7 +16,7 @@ from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
 from fastapi.responses import FileResponse, JSONResponse  # noqa: E402
 from pydantic import BaseModel  # noqa: E402
 
-from . import agent, llm, memory  # noqa: E402
+from . import agent, llm, memory, translate  # noqa: E402
 from .tools.programs import load_programs  # noqa: E402
 
 app = FastAPI(title="경남 이주민 능동 케어 에이전트")
@@ -47,6 +48,22 @@ def show_provider():
 @app.get("/api/health")
 def health():
     return {"ok": True, "provider": llm.provider_name()}
+
+
+class I18nRequest(BaseModel):
+    language: str
+    source: dict  # 프론트의 한국어 화면 문구 (원본)
+
+
+@app.post("/api/i18n")
+def i18n(req: I18nRequest):
+    """화면 문구를 AI로 번역한다. 한 번 번역한 결과는 data/i18n 에 저장해 다시 쓴다."""
+    if len(json.dumps(req.source, ensure_ascii=False)) > 20000:
+        raise HTTPException(413, "화면 문구가 너무 깁니다.")
+    try:
+        return translate.translate_ui(req.language, req.source)
+    except Exception as e:  # noqa: BLE001
+        return _error(e)
 
 
 @app.post("/api/chat")

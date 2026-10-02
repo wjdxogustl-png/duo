@@ -10,7 +10,7 @@ class ProfileUpdate(BaseModel):
     """대화에서 알아낸 항목만 채운다. 모르는 항목은 비워 둔다."""
 
     name: str | None = Field(None, description="사용자 이름(신청서 작성용)")
-    language: Literal["ko", "en", "vi"] | None = Field(None, description="사용자가 편한 언어")
+    language: Literal["ko", "en", "vi", "ja", "zh"] | None = Field(None, description="사용자가 편한 언어")
     region: str | None = Field(None, description="거주 시·군. 예: 창원, 김해, 진주")
     months_in_korea: int | None = Field(None, ge=0, description="한국 입국 후 경과 개월 수")
     has_spouse: bool | None = Field(None, description="배우자와 함께 거주하는지")

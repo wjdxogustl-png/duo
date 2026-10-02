@@ -37,6 +37,41 @@ def provider_name() -> str:
     return p
 
 
+def _chat_model(p: str):
+    """도구를 붙이기 전의 LangChain 채팅 모델 (anthropic / gemini / ollama)."""
+    if p == "anthropic":
+        from langchain_anthropic import ChatAnthropic
+        return ChatAnthropic(
+            model=os.getenv("ANTHROPIC_MODEL", "claude-sonnet-5-5"),
+            max_tokens=1500,
+            temperature=0.2,
+        )
+
+    if p == "gemini":
+        try:
+            from langchain_google_genai import ChatGoogleGenerativeAI
+        except ImportError as e:
+            raise RuntimeError("pip install langchain-google-genai 를 먼저 실행하세요.") from e
+        return ChatGoogleGenerativeAI(
+            model=os.getenv("GEMINI_MODEL", "gemini-flash-latest"),
+            temperature=0.2,
+            google_api_key=_real_key("GOOGLE_API_KEY") or _real_key("GEMINI_API_KEY"),
+        )
+
+    if p == "ollama":
+        try:
+            from langchain_ollama import ChatOllama
+        except ImportError as e:
+            raise RuntimeError("pip install langchain-ollama 를 먼저 실행하세요.") from e
+        return ChatOllama(
+            model=os.getenv("OLLAMA_MODEL", "qwen3:8b"),
+            temperature=0.2,
+            base_url=os.getenv("OLLAMA_BASE_URL", "http://localhost:11434"),
+        )
+
+    raise ValueError(f"알 수 없는 LLM_PROVIDER: {p} (mock / claude_agent / claude_cli / gemini / ollama / anthropic 중 하나)")
+
+
 def get_model(tools):
     """(도구가 연결된 모델, 제공자 이름)을 돌려준다."""
     p = provider_name()
@@ -44,15 +79,6 @@ def get_model(tools):
     if p == "mock":
         from .mock_llm import MockAgentModel
         return MockAgentModel(), p
-
-    if p == "anthropic":
-        from langchain_anthropic import ChatAnthropic
-        model = ChatAnthropic(
-            model=os.getenv("ANTHROPIC_MODEL", "claude-sonnet-5-5"),
-            max_tokens=1500,
-            temperature=0.2,
-        )
-        return model.bind_tools(tools), p
 
     if p == "claude_agent":
         from .claude_agent_llm import ClaudeAgentRunner
@@ -62,28 +88,23 @@ def get_model(tools):
         from .claude_cli_llm import ClaudeCLIModel
         return ClaudeCLIModel(tools), p
 
-    if p == "gemini":
-        try:
-            from langchain_google_genai import ChatGoogleGenerativeAI
-        except ImportError as e:
-            raise RuntimeError("pip install langchain-google-genai 를 먼저 실행하세요.") from e
-        model = ChatGoogleGenerativeAI(
-            model=os.getenv("GEMINI_MODEL", "gemini-flash-latest"),
-            temperature=0.2,
-            google_api_key=_real_key("GOOGLE_API_KEY") or _real_key("GEMINI_API_KEY"),
-        )
-        return model.bind_tools(tools), p
+    return _chat_model(p).bind_tools(tools), p
 
-    if p == "ollama":
-        try:
-            from langchain_ollama import ChatOllama
-        except ImportError as e:
-            raise RuntimeError("pip install langchain-ollama 를 먼저 실행하세요.") from e
-        model = ChatOllama(
-            model=os.getenv("OLLAMA_MODEL", "qwen3:8b"),
-            temperature=0.2,
-            base_url=os.getenv("OLLAMA_BASE_URL", "http://localhost:11434"),
-        )
-        return model.bind_tools(tools), p
 
-    raise ValueError(f"알 수 없는 LLM_PROVIDER: {p} (mock / claude_agent / claude_cli / gemini / ollama / anthropic 중 하나)")
+def complete_text(system: str, prompt: str, max_tokens: int = 4000) -> str | None:
+    """도구 없이 글만 생성한다(화면 문구 번역 등). mock 모드면 None."""
+    p = provider_name()
+    if p == "mock":
+        return None
+    if p in ("claude_cli", "claude_agent"):
+        from .claude_cli_llm import run_cli_text
+        return run_cli_text(system, prompt)
+
+    from langchain_core.messages import HumanMessage, SystemMessage
+    model = _chat_model(p)
+    if p == "anthropic":
+        model.max_tokens = max_tokens
+    content = model.invoke([SystemMessage(system), HumanMessage(prompt)]).content
+    if isinstance(content, list):
+        content = "".join(b.get("text", "") for b in content if isinstance(b, dict))
+    return content

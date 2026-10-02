@@ -14,7 +14,7 @@ from .tools import ALL_TOOLS
 from .tools.dday import compute_dday
 
 MAX_STEPS = 8
-LANG_NAMES = {"ko": "한국어", "en": "English", "vi": "Tiếng Việt"}
+LANG_NAMES = {"ko": "한국어", "en": "English", "vi": "Tiếng Việt", "ja": "日本語", "zh": "简体中文"}
 
 SYSTEM_PROMPT = """너는 경상남도에 새로 정착한 이주민을 돕는 '정착 도우미' 에이전트다.
 오늘 날짜: {today}. 응답 언어: {language} (사용자가 다른 언어로 말하면 그 언어로 답한다).
@@ -38,6 +38,8 @@ FALLBACK_REPLY = {
     "ko": "죄송해요, 답을 만들지 못했어요. 한 번 더 말씀해 주세요.",
     "en": "Sorry, I couldn't make a reply. Could you say that again?",
     "vi": "Xin lỗi, mình chưa trả lời được. Bạn nói lại giúp mình nhé?",
+    "ja": "すみません、うまく答えられませんでした。もう一度言っていただけますか？",
+    "zh": "抱歉，我没能给出回答。请再说一遍好吗？",
 }
 
 

@@ -13,4 +13,5 @@ export const api = {
   briefing: (userId, language) => request(`/briefing/${userId}?language=${language}`),
   state: (userId) => request(`/state/${userId}`),
   reset: (userId) => request(`/state/${userId}`, { method: "DELETE" }),
+  i18n: (language, source) => request("/i18n", { method: "POST", body: JSON.stringify({ language, source }) }),
 };

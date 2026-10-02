@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { api } from "./api.js";
-import { LANGS, T } from "./i18n.js";
+import { KO, LANGS } from "./i18n.js";
 import { KoreaMap, Taegukgi } from "./Emblems.jsx";
 
 function getUserId() {
@@ -19,9 +19,26 @@ function getTheme() {
   return window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light";
 }
 
+const WELCOME = { role: "assistant", kind: "welcome" }; // 내용은 현재 언어의 t.welcome 으로 그린다
+
+// 번역된 화면 문구는 원본(KO)이 같을 때만 브라우저에 저장해 둔 것을 다시 쓴다
+function cachedStrings(lang, sig) {
+  try {
+    const c = JSON.parse(localStorage.getItem(`settle_i18n_${lang}`));
+    return c?.sig === sig ? c.strings : null;
+  } catch {
+    return null;
+  }
+}
+
 export default function App() {
   const [userId] = useState(getUserId);
-  const [lang, setLang] = useState(localStorage.getItem("settle_lang") || "ko");
+  const [lang, setLang] = useState(() => {
+    const saved = localStorage.getItem("settle_lang");
+    return saved in LANGS ? saved : "ko";
+  });
+  const [t, setT] = useState(KO);
+  const [translating, setTranslating] = useState(false);
   const [theme, setTheme] = useState(getTheme);
   const [messages, setMessages] = useState([]);
   const [roadmap, setRoadmap] = useState([]);
@@ -30,7 +47,6 @@ export default function App() {
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const bottomRef = useRef(null);
-  const t = T[lang];
 
   // 저장된 대화를 먼저 복원하고, 재방문이면 에이전트가 먼저 말을 건다(능동 브리핑)
   useEffect(() => {
@@ -39,7 +55,7 @@ export default function App() {
       try {
         const saved = await api.state(userId);
         const restored = saved.history.map((h) => ({ role: h.role, content: h.content }));
-        setMessages(restored.length ? restored : [{ role: "assistant", content: T[lang].welcome }]);
+        setMessages(restored.length ? restored : [WELCOME]);
         setRoadmap(saved.roadmap);
         setDday(saved.dday_label);
         const { briefing } = await api.briefing(userId, lang);
@@ -55,6 +71,39 @@ export default function App() {
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
   }, [theme]);
+
+  // 한국어가 아니면 화면 문구를 AI 번역본으로 바꾼다 (번역이 오기 전까지는 한국어로 보인다)
+  useEffect(() => {
+    document.documentElement.lang = lang;
+    setTranslating(false);
+    if (lang === "ko") {
+      setT(KO);
+      return;
+    }
+    const sig = JSON.stringify(KO);
+    const cached = cachedStrings(lang, sig);
+    if (cached) {
+      setT(cached);
+      return;
+    }
+    let cancelled = false;
+    setTranslating(true);
+    api.i18n(lang, KO)
+      .then((res) => {
+        if (cancelled) return;
+        setT(res.strings);
+        if (res.translated) {
+          try {
+            localStorage.setItem(`settle_i18n_${lang}`, JSON.stringify({ sig, strings: res.strings }));
+          } catch {}
+        }
+      })
+      .catch(() => !cancelled && setT(KO))
+      .finally(() => !cancelled && setTranslating(false));
+    return () => {
+      cancelled = true;
+    };
+  }, [lang]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -85,7 +134,7 @@ export default function App() {
 
   async function resetAll() {
     await api.reset(userId);
-    setMessages([{ role: "assistant", content: t.welcome }]);
+    setMessages([WELCOME]);
     setRoadmap([]);
     setDday(null);
     setLog([]);
@@ -122,6 +171,9 @@ export default function App() {
             ))}
           </select>
           <button className="ghost" onClick={resetAll}>{t.reset}</button>
+          {lang !== "ko" && (
+            <span className="ai-badge" aria-live="polite">{translating ? t.translating : t.aiTranslated}</span>
+          )}
         </div>
       </header>
 
@@ -130,7 +182,7 @@ export default function App() {
           <div className="messages">
             {messages.map((m, i) => (
               <div key={i} className={`msg ${m.role} ${m.kind || ""}`}>
-                <div className="bubble">{m.content}</div>
+                <div className="bubble">{m.kind === "welcome" ? t.welcome : m.content}</div>
                 {m.files?.map((f) => (
                   <a key={f} className="file" href={f}>{t.download}</a>
                 ))}
