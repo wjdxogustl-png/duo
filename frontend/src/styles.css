@@ -122,6 +122,18 @@ select { padding: 8px 10px; border-radius: 10px; border: 1px solid var(--line); 
 .roadmap li.done::before { content: "✓"; background: var(--accent); color: var(--on-accent); }
 .cat { font-size: 11px; font-weight: 600; color: var(--accent-text); background: var(--accent-soft); border-radius: 4px; padding: 1px 6px; margin-right: 6px; }
 
+.situations { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.sit { border: 1px solid var(--line); border-left: 3px solid var(--accent); border-radius: 10px; padding: 10px 12px; background: var(--bg); }
+.sit.u-높음 { border-left-color: var(--red); }
+.sit.resolved { opacity: .6; border-left-color: var(--line); }
+.sit-head { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 4px; }
+.sit-head span { font-size: 11px; font-weight: 600; border-radius: 4px; padding: 1px 6px; }
+.need { color: var(--accent-text); background: var(--accent-soft); }
+.urgency { color: var(--muted); border: 1px solid var(--line); }
+.u-높음 .urgency { color: var(--red); border-color: var(--red); }
+.guess { color: var(--muted); background: var(--surface); border: 1px dashed var(--line); }
+.sit-text { margin: 0; font-size: 14px; line-height: 1.5; }
+.sit-evidence { margin: 4px 0 0; font-size: 12px; color: var(--muted); }
 .turn { border-top: 1px solid var(--line); padding: 10px 0; display: grid; gap: 4px; }
 .turn:first-of-type { border-top: 0; padding-top: 0; }
 .turn-head { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }

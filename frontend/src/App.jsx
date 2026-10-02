@@ -42,6 +42,7 @@ export default function App() {
   const [theme, setTheme] = useState(getTheme);
   const [messages, setMessages] = useState([]);
   const [roadmap, setRoadmap] = useState([]);
+  const [situations, setSituations] = useState([]);
   const [dday, setDday] = useState(null);
   const [log, setLog] = useState([]);
   const [input, setInput] = useState("");
@@ -57,6 +58,7 @@ export default function App() {
         const restored = saved.history.map((h) => ({ role: h.role, content: h.content }));
         setMessages(restored.length ? restored : [WELCOME]);
         setRoadmap(saved.roadmap);
+        setSituations(saved.situations || []);
         setDday(saved.dday_label);
         const { briefing } = await api.briefing(userId, lang);
         if (briefing) applyResult(briefing, "briefing");
@@ -113,6 +115,7 @@ export default function App() {
     setMessages((m) => [...m, { role: "assistant", content: res.reply, files: res.files, kind }]);
     setLog((l) => [{ at: new Date().toLocaleTimeString(), ms: res.elapsed_ms, trace: res.trace }, ...l]);
     setRoadmap(res.state.roadmap);
+    setSituations(res.state.situations || []);
     setDday(res.state.dday_label);
   }
 
@@ -136,6 +139,7 @@ export default function App() {
     await api.reset(userId);
     setMessages([WELCOME]);
     setRoadmap([]);
+    setSituations([]);
     setDday(null);
     setLog([]);
   }
@@ -204,6 +208,30 @@ export default function App() {
               <div className="region-name">{t.region}</div>
               <p className="muted small">{t.regionNote}</p>
             </div>
+          </div>
+
+          <div className="panel">
+            <h2>{t.situations}</h2>
+            {situations.length === 0 ? (
+              <p className="muted">{t.emptySituations}</p>
+            ) : (
+              <ul className="situations">
+                {[...situations]
+                  .sort((a, b) => (a.status === "해결됨") - (b.status === "해결됨"))
+                  .map((s) => (
+                    <li key={s.id} className={`sit ${s.status === "해결됨" ? "resolved" : ""} u-${s.urgency}`}>
+                      <div className="sit-head">
+                        <span className="need">{t.needs?.[s.need] ?? s.need}</span>
+                        <span className="urgency">{t.urgency?.[s.urgency] ?? s.urgency}</span>
+                        {s.confidence === "추정" && <span className="guess">{t.guessed}</span>}
+                        {s.status === "해결됨" && <span className="guess">{t.resolved}</span>}
+                      </div>
+                      <p className="sit-text">{s.understanding}</p>
+                      <p className="sit-evidence">{t.evidence}: “{s.evidence}”</p>
+                    </li>
+                  ))}
+              </ul>
+            )}
           </div>
 
           <div className="panel">

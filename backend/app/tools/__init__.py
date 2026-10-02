@@ -9,6 +9,7 @@ from typing import Literal
 from langchain_core.tools import StructuredTool, tool
 
 from . import dday, document, programs, risk, roadmap
+from .situation import SituationNote, note_situation as _note_situation
 from .profile import ProfileUpdate, save_profile as _save_profile
 
 
@@ -74,8 +75,23 @@ def generate_application_doc(name: str, phone: str, institution: str, preferred_
     return _json(document.generate_application_doc(name, phone, institution, preferred_time))
 
 
+note_situation = StructuredTool.from_function(
+    func=lambda **kw: _json(_note_situation(kw)),
+    name="note_situation",
+    description=(
+        "대화에서 추론한 사용자의 상황과 숨은 필요를 근거와 함께 기억한다. "
+        "사용자가 직접 요청하지 않았어도, 말 속에 드러난 어려움·변화·계획이 있으면 호출한다 "
+        "(예: '월세가 밀렸어요' → 생활비, '다음 주부터 야간 근무' + 어린 자녀 → 돌봄). "
+        "이미 기억한 상황이 바뀌었거나 해결됐으면 그 id 로 갱신한다. "
+        "프로필 항목(지역·자녀 유무 등)은 save_profile 로, 그 밖의 상황은 이 도구로 저장한다."
+    ),
+    args_schema=SituationNote,
+)
+
+
 ALL_TOOLS = [
     save_profile,
+    note_situation,
     build_roadmap,
     update_roadmap_step,
     search_programs,

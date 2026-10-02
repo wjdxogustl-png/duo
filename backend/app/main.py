@@ -89,7 +89,7 @@ def briefing(user_id: str, language: str = "ko", force: bool = False):
 def state(user_id: str):
     s = memory.load(user_id)
     return {
-        **{k: s[k] for k in ("profile", "roadmap", "dday", "history")},
+        **{k: s[k] for k in ("profile", "roadmap", "dday", "history", "situations")},
         "dday_label": compute_dday(s["dday"])["label"] if s["dday"] else None,
     }
 
