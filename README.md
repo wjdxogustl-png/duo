@@ -35,7 +35,7 @@
 ## 프로젝트 구조
 
 ```
-duo/
+Duo/
 ├── backend/          ← 백엔드 (Python / FastAPI / LangChain)
 │   ├── app/          ← API, 에이전트, 도구 7개, MCP 서버, LLM 제공자 전환
 │   ├── data/         ← 지원사업 DB (programs.json)
@@ -54,8 +54,6 @@ duo/
 | 문서 생성 | python-docx |
 | 프론트엔드 | React 18, Vite 5 |
 | 테스트 | pytest |
-
-LLM은 `backend/.env`의 `LLM_PROVIDER` 한 줄로 바꿀 수 있습니다 (`claude_agent`, `anthropic`, `mock` 등). 자세한 내용은 [docs/FREE_MODE.md](docs/FREE_MODE.md)를 참고하세요.
 
 ## 구현 현황
 
@@ -96,7 +94,3 @@ npm run dev                       # http://localhost:5173
 cd backend
 python -m pytest -q
 ```
-
-## 유의사항
-
-본 서비스는 비자·체류 자격·법률 문제를 판단하지 않으며, 출입국·외국인청(1345) 등 공식 기관으로 연결합니다. 신청서는 초안이며 실제 제출은 사용자가 직접 합니다.
