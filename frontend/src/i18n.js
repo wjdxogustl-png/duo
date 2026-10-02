@@ -17,6 +17,10 @@ export const T = {
     download: "신청서 내려받기",
     reset: "처음부터",
     noToolCall: "(도구 호출 없음)",
+    flag: "태극기",
+    region: "경상남도",
+    regionNote: "18개 시·군 · 대한민국 남동부",
+    mapLabel: "경상남도가 표시된 대한민국 지도",
     // 단계 id 는 backend/app/tools/roadmap.py 의 RULES 기준
     steps: {
       registration_check: "외국인등록·체류지 신고 여부 확인 (출입국·외국인청 공식 안내 확인)",
@@ -54,6 +58,10 @@ export const T = {
     download: "Download application",
     reset: "Start over",
     noToolCall: "(no tool calls)",
+    flag: "Flag of the Republic of Korea",
+    region: "Gyeongsangnam-do",
+    regionNote: "18 cities & counties · South-east Korea",
+    mapLabel: "Map of Korea with Gyeongsangnam-do highlighted",
     // TODO(조환성): 번역 대조 확인
     steps: {
       registration_check: "Check alien registration and address report (see official Immigration Office guidance)",
@@ -91,6 +99,10 @@ export const T = {
     download: "Tải đơn đăng ký",
     reset: "Bắt đầu lại",
     noToolCall: "(không gọi công cụ)",
+    flag: "Quốc kỳ Hàn Quốc",
+    region: "Gyeongsangnam-do",
+    regionNote: "18 thành phố, huyện · Đông Nam Hàn Quốc",
+    mapLabel: "Bản đồ Hàn Quốc, tô sáng tỉnh Gyeongsangnam-do",
     // TODO(조환성): 번역 대조 확인
     steps: {
       registration_check: "Kiểm tra đăng ký người nước ngoài và khai báo nơi cư trú (xem hướng dẫn chính thức của Cục Xuất nhập cảnh)",

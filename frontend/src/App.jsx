@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { api } from "./api.js";
 import { LANGS, T } from "./i18n.js";
+import { KoreaMap, Taegukgi } from "./Emblems.jsx";
 
 function getUserId() {
   let id = localStorage.getItem("settle_user_id");
@@ -86,9 +87,12 @@ export default function App() {
   return (
     <div className="app">
       <header className="top">
-        <div>
-          <h1>{t.title}</h1>
-          <p>{t.subtitle}</p>
+        <div className="brand">
+          <Taegukgi className="flag" title={t.flag} />
+          <div>
+            <h1>{t.title}</h1>
+            <p>{t.subtitle}</p>
+          </div>
         </div>
         <div className="controls">
           <select id="lang" value={lang} onChange={(e) => changeLang(e.target.value)}>
@@ -121,6 +125,14 @@ export default function App() {
         </section>
 
         <aside className="side">
+          <div className="panel region">
+            <KoreaMap className="map" title={t.mapLabel} />
+            <div>
+              <div className="region-name">{t.region}</div>
+              <p className="muted small">{t.regionNote}</p>
+            </div>
+          </div>
+
           <div className="panel">
             <h2>
               {t.roadmap}
@@ -132,8 +144,10 @@ export default function App() {
               <ol className="roadmap">
                 {roadmap.map((s) => (
                   <li key={s.id} className={s.done ? "done" : ""}>
-                    <span className="cat">{t.categories?.[s.category] ?? s.category}</span>
-                    {t.steps?.[s.id] ?? s.title}
+                    <span>
+                      <span className="cat">{t.categories?.[s.category] ?? s.category}</span>
+                      {t.steps?.[s.id] ?? s.title}
+                    </span>
                   </li>
                 ))}
               </ol>
