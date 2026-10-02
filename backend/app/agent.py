@@ -5,7 +5,7 @@ AgentExecutor 대신 bind_tools 로 루프를 직접 돌린다. 버전 변화에
 """
 import json
 import time
-from datetime import date
+from datetime import date, datetime, timedelta
 
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
 
@@ -14,6 +14,7 @@ from .tools import ALL_TOOLS
 from .tools.dday import compute_dday
 
 MAX_STEPS = 8
+BRIEFING_INTERVAL = timedelta(hours=6)  # 마지막 브리핑 후 이 시간 안에는 다시 브리핑하지 않는다
 LANG_NAMES = {"ko": "한국어", "en": "English", "vi": "Tiếng Việt", "ja": "日本語", "zh": "简体中文"}
 
 SYSTEM_PROMPT = """너는 경상남도에 새로 정착한 이주민을 돕는 '정착 도우미' 에이전트다.
@@ -22,10 +23,12 @@ SYSTEM_PROMPT = """너는 경상남도에 새로 정착한 이주민을 돕는 '
 일하는 방식
 1. 대화에서 새 정보를 알게 되면 바로 save_profile 로 저장한다. 필수 항목이 비어 있으면 한 번에 1~2개씩 쉽게 되묻는다.
 2. 필수 항목이 채워지면 score_risk 로 정착 안정도를 확인하고, build_roadmap 으로 순서가 있는 할 일을 만든다.
+   score_risk 결과의 missing 이 있으면 그 항목을 먼저 쉽게 되묻고, save_profile 로 저장한 뒤 다시 score_risk 를 호출한다.
 3. recommend_mentoring_first 가 true 면 멘토·상담(search_programs category=멘토링 또는 노동상담)을 먼저 제안한다.
 4. 로드맵 단계마다 search_programs 로 실제 지원사업을 찾아 연결한다. DB에 없는 사업을 지어내지 않는다.
 5. 신청서가 필요하면 필요한 값을 모두 확인한 뒤 generate_application_doc 을 호출하고 다운로드 링크를 안내한다.
 6. 사용자가 체류 종료일을 말하면 set_dday_reminder 로 저장한다.
+7. 서로 의존하지 않는 도구(예: 여러 단계의 search_programs)는 한 번에 함께 호출한다.
 
 지켜야 할 것
 - 비자·체류 자격·법률 문제에 대해 판단하거나 단정하지 않는다. "출입국·외국인청(1345) 등 공식 기관에서 확인하세요"라고 연결한다.
@@ -34,6 +37,7 @@ SYSTEM_PROMPT = """너는 경상남도에 새로 정착한 이주민을 돕는 '
 """
 
 
+# 모델이 텍스트 없이 끝났을 때 대신 보여 줄 문장(빈 assistant 메시지는 API가 거부한다)
 FALLBACK_REPLY = {
     "ko": "죄송해요, 답을 만들지 못했어요. 한 번 더 말씀해 주세요.",
     "en": "Sorry, I couldn't make a reply. Could you say that again?",
@@ -43,8 +47,9 @@ FALLBACK_REPLY = {
 }
 
 
-def _clean_history(history: list[dict]) -> list[dict]:
-    """API 규칙에 맞게 정리: user 로 시작, 같은 역할 연속은 합치고, 빈 내용은 버린다."""
+def clean_history(history: list[dict]) -> list[dict]:
+    """API 규칙(user 로 시작, 역할 교대, 빈 내용 금지)에 맞게 대화 기록을 정리한다(테스트 대상).
+    능동 브리핑은 assistant 만 저장하고 MAX_HISTORY 로 앞이 잘리기도 해서 규칙이 깨질 수 있다."""
     out: list[dict] = []
     for h in history:
         content = (h.get("content") or "").strip()
@@ -76,12 +81,17 @@ def run(user_id: str, message: str, language: str = "ko", internal: bool = False
 
     lang = state["profile"].get("language") or language
     messages = [SystemMessage(SYSTEM_PROMPT.format(today=date.today().isoformat(), language=LANG_NAMES.get(lang, lang)))]
-    history = _clean_history(state["history"])
-    if history and history[-1]["role"] == "user":  # 이번 메시지와 user 가 연속되지 않게
-        history = history[:-1]
+    history = clean_history(state["history"])
+    # 이번 메시지도 user 이므로 기록이 user 로 끝나면 합쳐서 역할 교대를 지킨다 (내용을 버리지 않는다).
+    # 브리핑(internal)은 시스템 알림으로 시작해야 하므로 앞의 user 기록은 빼고 보낸다.
+    message_for_model = message
+    if history and history[-1]["role"] == "user":
+        last = history.pop()["content"]
+        if not internal:
+            message_for_model = last + "\n\n" + message
     for h in history:
         messages.append(HumanMessage(h["content"]) if h["role"] == "user" else AIMessage(h["content"]))
-    messages.append(HumanMessage(message))
+    messages.append(HumanMessage(message_for_model))
 
     model, provider = llm.get_model(ALL_TOOLS)
     trace, files = [], []
@@ -98,9 +108,9 @@ def run(user_id: str, message: str, language: str = "ko", internal: bool = False
     if not reply.strip():
         reply = FALLBACK_REPLY.get(lang, FALLBACK_REPLY["ko"])
 
-    # 도구가 상태를 바꿨을 수 있으므로 다시 읽은 뒤 대화 기록만 추가
+    # 도구가 상태를 바꿨을 수 있으므로 다시 읽은 뒤 대화 기록만 추가 (빈 내용은 저장하지 않는다)
     state = memory.load()
-    if not internal:
+    if not internal and message.strip():
         state["history"].append({"role": "user", "content": message})
     state["history"].append({"role": "assistant", "content": reply})
     memory.save(state)
@@ -111,7 +121,10 @@ def run(user_id: str, message: str, language: str = "ko", internal: bool = False
         "files": files,
         "elapsed_ms": round((time.perf_counter() - started) * 1000),
         "provider": provider,
-        "state": {k: state[k] for k in ("profile", "roadmap", "dday")},
+        "state": {
+            **{k: state[k] for k in ("profile", "roadmap", "dday")},
+            "dday_label": compute_dday(state["dday"])["label"] if state["dday"] else None,
+        },
     }
 
 
@@ -151,13 +164,22 @@ def briefing_facts(user_id: str) -> dict | None:
     return facts
 
 
-def briefing(user_id: str, language: str = "ko") -> dict | None:
+def briefing(user_id: str, language: str = "ko", force: bool = False) -> dict | None:
+    """force=True 면 시간 제한 없이 브리핑한다(시연용)."""
     facts = briefing_facts(user_id)
     if facts is None:
+        return None
+    state = memory.load(user_id)
+    last = state.get("last_briefing_at")
+    if not force and last and datetime.now() - datetime.fromisoformat(last) < BRIEFING_INTERVAL:
         return None
     prompt = (
         "[시스템 알림: 사용자가 다시 방문했다. 아래 사실을 바탕으로 먼저 짧게 인사하고, "
         "D-day가 있으면 알려 주고, 남은 단계 중 다음 할 일 하나를 제안해라. 도구는 필요할 때만 쓴다.]\n"
         + json.dumps(facts, ensure_ascii=False)
     )
-    return run(user_id, prompt, language, internal=True)
+    result = run(user_id, prompt, language, internal=True)
+    state = memory.load(user_id)
+    state["last_briefing_at"] = datetime.now().isoformat(timespec="seconds")
+    memory.save(state, user_id)
+    return result

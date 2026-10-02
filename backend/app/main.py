@@ -17,6 +17,7 @@ from fastapi.responses import FileResponse, JSONResponse  # noqa: E402
 from pydantic import BaseModel  # noqa: E402
 
 from . import agent, llm, memory, translate  # noqa: E402
+from .tools.dday import compute_dday  # noqa: E402
 from .tools.programs import load_programs  # noqa: E402
 
 app = FastAPI(title="경남 이주민 능동 케어 에이전트")
@@ -75,10 +76,11 @@ def chat(req: ChatRequest):
 
 
 @app.get("/api/briefing/{user_id}")
-def briefing(user_id: str, language: str = "ko"):
-    """재방문 시 프론트가 가장 먼저 호출. 저장된 프로필이 없으면 briefing=None."""
+def briefing(user_id: str, language: str = "ko", force: bool = False):
+    """재방문 시 프론트가 기록 복원 뒤 호출. 프로필이 없거나 최근 6시간 안에 브리핑했으면 briefing=None.
+    시연용: ?force=true 면 시간 제한 없이 브리핑."""
     try:
-        return {"briefing": agent.briefing(user_id, language)}
+        return {"briefing": agent.briefing(user_id, language, force)}
     except Exception as e:  # noqa: BLE001
         return _error(e)
 
@@ -86,7 +88,10 @@ def briefing(user_id: str, language: str = "ko"):
 @app.get("/api/state/{user_id}")
 def state(user_id: str):
     s = memory.load(user_id)
-    return {k: s[k] for k in ("profile", "roadmap", "dday", "history")}
+    return {
+        **{k: s[k] for k in ("profile", "roadmap", "dday", "history")},
+        "dday_label": compute_dday(s["dday"])["label"] if s["dday"] else None,
+    }
 
 
 @app.delete("/api/state/{user_id}")
