@@ -17,7 +17,7 @@ assert args[args.index("--allowedTools") + 1] == "mcp__settle"
 cfg = json.load(open(args[args.index("--mcp-config") + 1], encoding="utf-8"))["mcpServers"]["settle"]
 sys.stdin.read()
 srv = subprocess.Popen([cfg["command"], *cfg["args"]], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                       env={{**os.environ, **cfg["env"]}}, text=True, encoding="utf-8")
+                       env=dict(os.environ, PYTHONPATH=cfg["env"]["PYTHONPATH"]), text=True, encoding="utf-8")  # 사용자·기록 경로는 인자로만 전달되는지 확인
 def rpc(i, method, params):
     srv.stdin.write(json.dumps({{"jsonrpc": "2.0", "id": i, "method": method, "params": params}}) + "\n")
     srv.stdin.flush()
@@ -27,6 +27,7 @@ tools = [t["name"] for t in rpc(2, "tools/list", {{}})["result"]["tools"]]
 assert "save_profile" in tools
 rpc(3, "tools/call", {{"name": "save_profile", "arguments": {{"region": "김해", "months_in_korea": 2}}}})
 srv.stdin.close(); srv.wait()
+print(json.dumps({{"type": "system", "subtype": "init", "mcp_servers": [{{"name": "settle", "status": "connected"}}]}}))
 print(json.dumps({{"type": "result", "is_error": False, "result": "김해에 오신 지 2달이군요. 한국어는 어느 정도 하세요?"}}, ensure_ascii=False))
 '''
 
@@ -52,3 +53,42 @@ def test_claude_agent_runs_tools_through_mcp(fake_cli):
     assert r["trace"][0]["result"]["profile"]["region"] == "김해"
     assert r["state"]["profile"]["months_in_korea"] == 2   # MCP 서버가 쓴 데이터를 백엔드가 읽는다
     assert "한국어" in r["reply"]
+
+
+FAKE_NOT_CONNECTED = r'''#!{python}
+import json, sys
+sys.stdin.read()
+print(json.dumps({{"type": "system", "subtype": "init", "mcp_servers": [{{"name": "settle", "status": "failed"}}]}}))
+print(json.dumps({{"type": "result", "is_error": False, "result": "저장했어요."}}, ensure_ascii=False))
+'''
+
+FAKE_STREAM_ONLY = r'''#!{python}
+import json, sys
+sys.stdin.read()
+print(json.dumps({{"type": "system", "subtype": "init", "mcp_servers": [{{"name": "settle", "status": "connected"}}]}}))
+print(json.dumps({{"type": "assistant", "message": {{"content": [{{"type": "tool_use", "id": "t1", "name": "mcp__settle__score_risk", "input": {{}}}}]}}}}))
+print(json.dumps({{"type": "user", "message": {{"content": [{{"type": "tool_result", "tool_use_id": "t1", "content": [{{"type": "text", "text": json.dumps({{"score": 40}})}}]}}]}}}}))
+print(json.dumps({{"type": "result", "is_error": False, "result": "점수를 확인했어요."}}, ensure_ascii=False))
+'''
+
+
+def _install(tmp_path, monkeypatch, body):
+    p = tmp_path / "claude2"
+    p.write_text(body.format(python=sys.executable), encoding="utf-8")
+    p.chmod(0o755)
+    monkeypatch.setenv("LLM_PROVIDER", "claude_agent")
+    monkeypatch.setenv("CLAUDE_CLI_PATH", str(p))
+    monkeypatch.setattr(memory, "USERS_DIR", tmp_path / "users")
+
+
+def test_mcp_not_connected_is_reported(tmp_path, monkeypatch):
+    _install(tmp_path, monkeypatch, FAKE_NOT_CONNECTED)
+    with pytest.raises(RuntimeError, match="MCP 서버"):
+        agent.run("u", "대학생이에요")
+
+
+def test_trace_recovered_from_stream(tmp_path, monkeypatch):
+    _install(tmp_path, monkeypatch, FAKE_STREAM_ONLY)
+    r = agent.run("u", "점수 알려줘")
+    assert r["trace"][0]["tool"] == "score_risk"
+    assert r["trace"][0]["result"] == {"score": 40}

@@ -6,6 +6,7 @@ Claude Code가 이 서버를 띄워 도구 목록을 받고, 필요할 때마다
 환경 변수
   SETTLE_USER_ID    : 어느 사용자의 데이터(프로필·로드맵)를 다룰지
   SETTLE_TRACE_FILE : 도구 호출 기록을 한 줄씩 남길 파일 (화면의 '에이전트 작업 기록'에 표시)
+  (명령줄 인자 --user, --trace 로도 줄 수 있고, 인자가 우선한다)
 
 직접 실행해 확인: (backend 폴더에서) python -m app.mcp_server
 """
@@ -38,8 +39,17 @@ def _tool_list() -> list[dict]:
     return out
 
 
+def _arg(name: str) -> str | None:
+    """--user, --trace 명령줄 인자 (환경 변수가 전달되지 않는 환경 대비)."""
+    if name in sys.argv:
+        i = sys.argv.index(name)
+        if i + 1 < len(sys.argv):
+            return sys.argv[i + 1]
+    return None
+
+
 def _trace(entry: dict) -> None:
-    path = os.getenv("SETTLE_TRACE_FILE")
+    path = _arg("--trace") or os.getenv("SETTLE_TRACE_FILE")
     if path:
         with open(path, "a", encoding="utf-8") as f:
             f.write(json.dumps(entry, ensure_ascii=False) + "\n")
@@ -89,7 +99,7 @@ def handle(msg: dict) -> dict | None:
 
 
 def main() -> None:
-    memory.current_user.set(os.getenv("SETTLE_USER_ID", "default"))
+    memory.current_user.set(_arg("--user") or os.getenv("SETTLE_USER_ID") or "default")
     stdin = open(sys.stdin.fileno(), "r", encoding="utf-8", closefd=False)
     stdout = open(sys.stdout.fileno(), "w", encoding="utf-8", closefd=False, newline="\n")
     for line in stdin:
