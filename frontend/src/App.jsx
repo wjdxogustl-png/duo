@@ -12,9 +12,17 @@ function getUserId() {
   return id;
 }
 
+// 저장된 선택이 없으면 운영체제 설정(라이트/다크)을 따른다
+function getTheme() {
+  const saved = localStorage.getItem("settle_theme");
+  if (saved === "light" || saved === "dark") return saved;
+  return window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+}
+
 export default function App() {
   const [userId] = useState(getUserId);
   const [lang, setLang] = useState(localStorage.getItem("settle_lang") || "ko");
+  const [theme, setTheme] = useState(getTheme);
   const [messages, setMessages] = useState([]);
   const [roadmap, setRoadmap] = useState([]);
   const [dday, setDday] = useState(null);
@@ -43,6 +51,10 @@ export default function App() {
       }
     })();
   }, [userId]);
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+  }, [theme]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -79,6 +91,11 @@ export default function App() {
     setLog([]);
   }
 
+  function changeTheme(next) {
+    setTheme(next);
+    localStorage.setItem("settle_theme", next);
+  }
+
   function changeLang(l) {
     setLang(l);
     localStorage.setItem("settle_lang", l);
@@ -95,6 +112,10 @@ export default function App() {
           </div>
         </div>
         <div className="controls">
+          <div className="theme-toggle" role="group" aria-label={t.theme}>
+            <button type="button" aria-pressed={theme === "light"} onClick={() => changeTheme("light")} aria-label={t.themeLight} title={t.themeLight}>☀<span className="label"> {t.themeLight}</span></button>
+            <button type="button" aria-pressed={theme === "dark"} onClick={() => changeTheme("dark")} aria-label={t.themeDark} title={t.themeDark}>☾<span className="label"> {t.themeDark}</span></button>
+          </div>
           <select id="lang" value={lang} onChange={(e) => changeLang(e.target.value)}>
             {Object.entries(LANGS).map(([k, v]) => (
               <option key={k} value={k}>{v}</option>
