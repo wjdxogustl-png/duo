@@ -6,3 +6,7 @@ python-docx>=1.1
 python-dotenv>=1.0
 pydantic>=2.7
 pytest>=8.0
+
+# 무료 LLM을 쓸 때만 추가 설치 (mock 모드는 필요 없음)
+# langchain-google-genai   # LLM_PROVIDER=gemini
+# langchain-ollama         # LLM_PROVIDER=ollama
