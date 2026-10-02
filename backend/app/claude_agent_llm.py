@@ -19,7 +19,7 @@ from pathlib import Path
 
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 
-from .claude_cli_llm import _cli_path
+from .claude_cli_llm import _cli_path, write_system_prompt
 
 BACKEND_DIR = Path(__file__).resolve().parents[1]
 
@@ -80,7 +80,7 @@ class ClaudeAgentRunner:
                 "--strict-mcp-config",
                 "--allowedTools", "mcp__settle",
                 "--permission-prompts", "none",
-                "--system-prompt", system + AGENT_NOTE,
+                "--system-prompt-file", write_system_prompt(tmp, system + AGENT_NOTE),
                 "--model", self.model,
                 "--no-session-persistence",
             ]
