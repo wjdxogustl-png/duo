@@ -94,6 +94,20 @@ python -m pytest -q             # Windows: 25 passed, 3 skipped (가짜 CLI 테�
 - **대화**: 에이전트가 사용자가 쓴 언어로 답한다 (베트남어 등 화면 선택지에 없는 언어도 가능).
 - **화면 문구**: 한국어 / English / 日本語 / 中文(简体). `i18n.js` 의 한국어 원본만 관리하고, 다른 언어는 `/api/i18n` 이 현재 LLM으로 번역해 `backend/data/i18n/` 에 저장한다. 원본을 고치면 다음에 자동으로 다시 번역된다. 번역에 실패하거나 mock 모드면 한국어로 보인다.
 
+### 맥락 추론과 평가
+
+에이전트는 키워드가 아니라 말의 맥락으로 숨은 필요를 판단하고(`note_situation`), 그 판단을 근거 문장과 함께 기억해 다음 대화·재방문 때 다시 쓴다. 화면의 "에이전트가 이해한 상황" 패널에 판단과 근거가 보인다.
+
+`backend/eval/` 에 간접 표현 평가 세트 100개(간접 표현 40, 여러 턴 결합 20, 함정·부정 20, 다국어 10, 필요 없음 10)와 키워드 방식 비교 실행기가 있다.
+
+```bash
+cd backend
+python -m eval.run_eval --mode keyword   # 키워드 방식만 (즉시)
+python -m eval.run_eval --mode both      # 키워드 vs 에이전트 (.env 의 LLM_PROVIDER 사용)
+```
+
+결과는 `eval/results/` 에 Markdown 표(완료보고서용)와 JSON(사례별 판단·답장 전체)으로 저장된다.
+
 ## 팀 작업 TODO
 
 - [ ] (조환성) `data/programs.json` 예시 2건 삭제, 실제 조사 사업 20건 이상 입력 (`source_url`, `checked_at` 필수)
@@ -117,7 +131,7 @@ python -m pytest -q             # Windows: 25 passed, 3 skipped (가짜 CLI 테�
 | LLM | Anthropic Claude (API, 시연용). 개발 중에는 Claude Code CLI(구독)로도 실행 |
 | 프레임워크 | LangChain (langchain-core, langchain-anthropic), FastAPI, React, Vite, python-docx, MCP(claude_agent 개발 모드) |
 | AI 코딩 도구 | 프로젝트 뼈대 생성, 기능 추가·버그 수정(LLM 제공자 선택, 화면 디자인, 라이트/다크 모드, 자동 번역 등)에 Claude Code 사용 |
-| AI 생성 콘텐츠 | 화면 문구 영어·일본어·중국어 번역을 Claude로 자동 생성 (`backend/data/i18n/`) |
+| AI 생성 콘텐츠 | 화면 문구 영어·일본어·중국어 번역을 Claude로 자동 생성 (`backend/data/i18n/`). 간접 표현 평가 세트 100문장 초안을 Claude Code로 작성 (`backend/eval/cases.jsonl`, 팀 검토 필요) |
 | 데이터 | 지원사업: 팀이 경남 시·군 홈페이지에서 직접 조사 (각 항목 source_url 참조) |
 | 지도 | 대한민국 시·도 경계: [southkorea/southkorea-maps](https://github.com/southkorea/southkorea-maps) (KOSTAT 2013 행정구역, 단순화). 독도 위치는 좌표로 직접 표시 |
 | 태극기 | 「대한민국국기법」 시행령의 비율에 따라 SVG로 직접 작도 |
