@@ -15,7 +15,7 @@ from .memory import DATA_DIR
 log = logging.getLogger("settle-agent")
 
 I18N_DIR = DATA_DIR / "i18n"
-TARGETS = {"en": "영어", "ja": "일본어", "zh": "중국어 간체(简体中文)"}
+TARGETS = {"en": "영어", "vi": "베트남어", "ja": "일본어", "zh": "중국어 간체(简体中文)"}
 _locks = {lang: threading.Lock() for lang in TARGETS}
 
 SYSTEM = """너는 경상남도 이주민 정착 도우미 웹앱의 화면 문구를 번역하는 전문 번역가다.

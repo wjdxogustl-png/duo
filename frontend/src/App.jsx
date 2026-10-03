@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { api } from "./api.js";
-import { KO, LANGS } from "./i18n.js";
+import { KO, LANGS, LOCALES, TRANSLATIONS, hasMissing, mergeStrings } from "./i18n.js";
 import { KoreaMap, Taegukgi } from "./Emblems.jsx";
 
 function getUserId() {
@@ -39,6 +39,7 @@ export default function App() {
   });
   const [t, setT] = useState(KO);
   const [translating, setTranslating] = useState(false);
+  const [aiUsed, setAiUsed] = useState(false);
   const [theme, setTheme] = useState(getTheme);
   const [messages, setMessages] = useState([]);
   const [roadmap, setRoadmap] = useState([]);
@@ -74,33 +75,37 @@ export default function App() {
     document.documentElement.dataset.theme = theme;
   }, [theme]);
 
-  // 한국어가 아니면 화면 문구를 AI 번역본으로 바꾼다 (번역이 오기 전까지는 한국어로 보인다)
+  // 한국어가 아니면 i18n.js 에 직접 번역해 둔 문구를 쓴다.
+  // 번역에 빠진 키가 있을 때만 AI 번역으로 채운다 (번역이 오기 전까지 빠진 키는 한국어로 보인다)
   useEffect(() => {
     document.documentElement.lang = lang;
     setTranslating(false);
-    if (lang === "ko") {
-      setT(KO);
-      return;
-    }
+    setAiUsed(false);
+    const manual = TRANSLATIONS[lang];
+    const base = mergeStrings(KO, manual);
+    setT(base);
+    if (lang === "ko" || !hasMissing(KO, manual)) return;
+    const fill = (strings) => {
+      setT(mergeStrings(mergeStrings(KO, strings), manual));
+      setAiUsed(true);
+    };
     const sig = JSON.stringify(KO);
     const cached = cachedStrings(lang, sig);
     if (cached) {
-      setT(cached);
+      fill(cached);
       return;
     }
     let cancelled = false;
     setTranslating(true);
     api.i18n(lang, KO)
       .then((res) => {
-        if (cancelled) return;
-        setT(res.strings);
-        if (res.translated) {
-          try {
-            localStorage.setItem(`settle_i18n_${lang}`, JSON.stringify({ sig, strings: res.strings }));
-          } catch {}
-        }
+        if (cancelled || !res.translated) return;
+        fill(res.strings);
+        try {
+          localStorage.setItem(`settle_i18n_${lang}`, JSON.stringify({ sig, strings: res.strings }));
+        } catch {}
       })
-      .catch(() => !cancelled && setT(KO))
+      .catch(() => {})
       .finally(() => !cancelled && setTranslating(false));
     return () => {
       cancelled = true;
@@ -113,7 +118,7 @@ export default function App() {
 
   function applyResult(res, kind = "chat") {
     setMessages((m) => [...m, { role: "assistant", content: res.reply, files: res.files, kind }]);
-    setLog((l) => [{ at: new Date().toLocaleTimeString(), ms: res.elapsed_ms, trace: res.trace }, ...l]);
+    setLog((l) => [{ at: new Date(), ms: res.elapsed_ms, trace: res.trace, kind }, ...l]);
     setRoadmap(res.state.roadmap);
     setSituations(res.state.situations || []);
     setDday(res.state.dday_label);
@@ -175,7 +180,7 @@ export default function App() {
             ))}
           </select>
           <button className="ghost" onClick={resetAll}>{t.reset}</button>
-          {lang !== "ko" && (
+          {(translating || aiUsed) && (
             <span className="ai-badge" aria-live="polite">{translating ? t.translating : t.aiTranslated}</span>
           )}
         </div>
@@ -262,12 +267,15 @@ export default function App() {
             ) : (
               log.map((turn, i) => (
                 <div key={i} className="turn">
-                  <div className="turn-head">{turn.at} · {turn.ms}ms</div>
+                  <div className="turn-head">
+                    {turn.at.toLocaleTimeString(LOCALES[lang])}
+                    {turn.kind === "briefing" && ` · ${t.briefingTurn}`} · {turn.ms}ms
+                  </div>
                   {turn.trace.length === 0 && <div className="muted small">{t.noToolCall}</div>}
                   {turn.trace.map((c, j) => (
                     <details key={j} className="call">
                       <summary>
-                        <code>{c.tool}</code>({Object.keys(c.args).join(", ")}) · {c.ms}ms
+                        {t.tools?.[c.tool] ?? c.tool} <code>{c.tool}</code> · {c.ms}ms
                       </summary>
                       <pre>{JSON.stringify({ args: c.args, result: c.result }, null, 2)}</pre>
                     </details>

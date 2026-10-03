@@ -79,16 +79,18 @@ button.ghost:hover { background: var(--bg); }
 select { padding: 8px 10px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface); color: var(--fg); }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
-.grid { flex: 1; min-height: 0; display: grid; grid-template-columns: 1.5fr 1fr; gap: 16px; }
+/* 행 높이를 남은 공간으로 고정해야 대화가 길어져도 칸이 늘지 않고 안에서 스크롤된다 */
+.grid { flex: 1; min-height: 0; display: grid; grid-template-columns: 1.5fr 1fr; grid-template-rows: minmax(0, 1fr); gap: 16px; }
 .chat, .panel { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; box-shadow: var(--shadow); }
 
 /* 대화 */
 .chat { display: flex; flex-direction: column; min-height: 0; }
 .messages { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 12px; }
-.msg { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
+/* flex-shrink 0: 메시지가 많아져도 말풍선이 찌그러져 겹치지 않고 목록이 스크롤된다 */
+.msg { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; flex-shrink: 0; }
 .msg.user { align-items: flex-end; }
 .bubble { max-width: 85%; padding: 11px 15px; border-radius: 16px 16px 16px 4px; background: var(--bg); border: 1px solid var(--line);
-  white-space: pre-wrap; line-height: 1.65; font-size: 15px; }
+  white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.65; font-size: 15px; }
 .msg.user .bubble { background: var(--accent); border-color: var(--accent); color: var(--on-accent); border-radius: 16px 16px 4px 16px; }
 .msg.briefing .bubble { background: var(--accent-soft); border: 1px solid var(--accent-line); border-left: 3px solid var(--accent); }
 .msg.error .bubble { background: var(--red-soft); border-color: var(--error-line); color: var(--error-fg); }
@@ -145,7 +147,7 @@ select { padding: 8px 10px; border-radius: 10px; border: 1px solid var(--line); 
 
 @media (max-width: 860px) {
   .app { height: auto; }
-  .grid { grid-template-columns: 1fr; }
+  .grid { grid-template-columns: 1fr; grid-template-rows: none; }
   .chat { height: 70vh; }
 }
 @media (max-width: 480px) {
