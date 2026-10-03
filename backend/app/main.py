@@ -2,6 +2,7 @@
 
 실행: (backend 폴더에서) uvicorn app.main:app --reload --port 8000
 """
+import json
 import logging
 
 from dotenv import load_dotenv
@@ -15,7 +16,8 @@ from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
 from fastapi.responses import FileResponse, JSONResponse  # noqa: E402
 from pydantic import BaseModel  # noqa: E402
 
-from . import agent, llm, memory  # noqa: E402
+from . import agent, llm, memory, translate  # noqa: E402
+from .tools.dday import compute_dday  # noqa: E402
 from .tools.programs import load_programs  # noqa: E402
 
 app = FastAPI(title="경남 이주민 능동 케어 에이전트")
@@ -49,6 +51,22 @@ def health():
     return {"ok": True, "provider": llm.provider_name()}
 
 
+class I18nRequest(BaseModel):
+    language: str
+    source: dict  # 프론트의 한국어 화면 문구 (원본)
+
+
+@app.post("/api/i18n")
+def i18n(req: I18nRequest):
+    """화면 문구를 AI로 번역한다. 한 번 번역한 결과는 data/i18n 에 저장해 다시 쓴다."""
+    if len(json.dumps(req.source, ensure_ascii=False)) > 20000:
+        raise HTTPException(413, "화면 문구가 너무 깁니다.")
+    try:
+        return translate.translate_ui(req.language, req.source)
+    except Exception as e:  # noqa: BLE001
+        return _error(e)
+
+
 @app.post("/api/chat")
 def chat(req: ChatRequest):
     try:
@@ -58,10 +76,11 @@ def chat(req: ChatRequest):
 
 
 @app.get("/api/briefing/{user_id}")
-def briefing(user_id: str, language: str = "ko"):
-    """재방문 시 프론트가 가장 먼저 호출. 저장된 프로필이 없으면 briefing=None."""
+def briefing(user_id: str, language: str = "ko", force: bool = False):
+    """재방문 시 프론트가 기록 복원 뒤 호출. 프로필이 없거나 최근 6시간 안에 브리핑했으면 briefing=None.
+    시연용: ?force=true 면 시간 제한 없이 브리핑."""
     try:
-        return {"briefing": agent.briefing(user_id, language)}
+        return {"briefing": agent.briefing(user_id, language, force)}
     except Exception as e:  # noqa: BLE001
         return _error(e)
 
@@ -69,7 +88,10 @@ def briefing(user_id: str, language: str = "ko"):
 @app.get("/api/state/{user_id}")
 def state(user_id: str):
     s = memory.load(user_id)
-    return {k: s[k] for k in ("profile", "roadmap", "dday", "history")}
+    return {
+        **{k: s[k] for k in ("profile", "roadmap", "dday", "history", "situations")},
+        "dday_label": compute_dday(s["dday"])["label"] if s["dday"] else None,
+    }
 
 
 @app.delete("/api/state/{user_id}")

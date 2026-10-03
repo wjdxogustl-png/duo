@@ -21,7 +21,7 @@
 - 재방문 시 에이전트가 D-day와 남은 단계를 먼저 안내 ("능동 케어")
 - 화면에 도구 호출 로그 패널을 두어 시연영상에서 에이전트 판단 과정을 보여줌
 - 스택: Python FastAPI + langchain-anthropic (모델 claude-sonnet-5-5), React(Vite), JSON 파일 DB, python-docx
-- 언어: 한국어 / English / Tiếng Việt
+- 언어: 대화는 사용자가 쓴 언어로 답함(베트남어 포함). 화면 문구는 한국어 원본 + AI 자동 번역(English / 日本語 / 中文)
 - 안전장치: 비자·법률 판단 금지, 공식 기관(출입국·외국인청 1345 등) 연결
 
 ## 시연 시나리오
@@ -41,11 +41,14 @@
 | 10/5 | 테스트 표, 정량 목표 측정, 버그 수정 | 시연영상 촬영, 번역 대조 |
 | 10/6 | 완료보고서, 기술설명서, 별지2 | 발표자료, README, GitHub → 제출 |
 
-## 현재 코드 상태 (settle-agent 폴더)
-- 백엔드 뼈대 완성, 규칙 기반 도구 테스트 12개 통과
-- Claude API 실제 호출은 아직 미검증 (backend/.env 에 ANTHROPIC_API_KEY 필요)
-- 프론트엔드 코드 작성 완료, 일반 폴더에서 npm install → npm run dev 로 확인 필요
+## 현재 코드 상태 (2026-10-02, taehyeon 브랜치)
+- 백엔드·프론트 동작 확인. 테스트 25개 통과 (Windows, 가짜 CLI 테스트 3개는 macOS/Linux 전용)
+- LLM 제공자 선택: `.env` 의 `LLM_PROVIDER` (mock / claude_agent / claude_cli / gemini / ollama / anthropic). 자세한 내용은 FREE_MODE.md
+- `claude_agent` 모드로 베트남어 E2E 확인: save_profile → score_risk(10/50) → build_roadmap → search_programs 6회, 한 턴 20.3초
+- `anthropic` 모드(시연·정량 측정용)는 API 키가 없어 아직 미검증
+- 화면: 태극기·경남 지도, 라이트/다크 모드, 화면 문구 AI 자동 번역(en/ja/zh, `backend/data/i18n/` 에 캐시)
 - data/programs.json 은 예시 2건뿐 → 실제 조사 20건 이상으로 교체해야 함
+- 신청서 템플릿(data/templates/*.docx) 없음 → 코드가 기본 양식 자동 생성 중
 - 자세한 구조·실행법·TODO 는 README.md 참고
 
 ## 정량 목표

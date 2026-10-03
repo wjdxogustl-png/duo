@@ -27,7 +27,7 @@ def _path(user_id: str) -> Path:
 
 
 def empty_state() -> dict:
-    return {"profile": {}, "roadmap": [], "dday": None, "history": [], "last_briefing_at": None}
+    return {"profile": {}, "roadmap": [], "dday": None, "history": [], "last_briefing_at": None, "situations": []}
 
 
 def load(user_id: str | None = None) -> dict:

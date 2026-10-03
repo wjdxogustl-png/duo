@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { api } from "./api.js";
-import { LANGS, T } from "./i18n.js";
+import { KO, LANGS } from "./i18n.js";
+import { KoreaMap, Taegukgi } from "./Emblems.jsx";
 
 function getUserId() {
   let id = localStorage.getItem("settle_user_id");
@@ -11,17 +12,42 @@ function getUserId() {
   return id;
 }
 
+// 저장된 선택이 없으면 운영체제 설정(라이트/다크)을 따른다
+function getTheme() {
+  const saved = localStorage.getItem("settle_theme");
+  if (saved === "light" || saved === "dark") return saved;
+  return window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+}
+
+const WELCOME = { role: "assistant", kind: "welcome" }; // 내용은 현재 언어의 t.welcome 으로 그린다
+
+// 번역된 화면 문구는 원본(KO)이 같을 때만 브라우저에 저장해 둔 것을 다시 쓴다
+function cachedStrings(lang, sig) {
+  try {
+    const c = JSON.parse(localStorage.getItem(`settle_i18n_${lang}`));
+    return c?.sig === sig ? c.strings : null;
+  } catch {
+    return null;
+  }
+}
+
 export default function App() {
   const [userId] = useState(getUserId);
-  const [lang, setLang] = useState(localStorage.getItem("settle_lang") || "ko");
+  const [lang, setLang] = useState(() => {
+    const saved = localStorage.getItem("settle_lang");
+    return saved in LANGS ? saved : "ko";
+  });
+  const [t, setT] = useState(KO);
+  const [translating, setTranslating] = useState(false);
+  const [theme, setTheme] = useState(getTheme);
   const [messages, setMessages] = useState([]);
   const [roadmap, setRoadmap] = useState([]);
+  const [situations, setSituations] = useState([]);
   const [dday, setDday] = useState(null);
   const [log, setLog] = useState([]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const bottomRef = useRef(null);
-  const t = T[lang];
 
   // 저장된 대화를 먼저 복원하고, 재방문이면 에이전트가 먼저 말을 건다(능동 브리핑)
   useEffect(() => {
@@ -30,8 +56,9 @@ export default function App() {
       try {
         const saved = await api.state(userId);
         const restored = saved.history.map((h) => ({ role: h.role, content: h.content }));
-        setMessages(restored.length ? restored : [{ role: "assistant", content: T[lang].welcome }]);
+        setMessages(restored.length ? restored : [WELCOME]);
         setRoadmap(saved.roadmap);
+        setSituations(saved.situations || []);
         setDday(saved.dday_label);
         const { briefing } = await api.briefing(userId, lang);
         if (briefing) applyResult(briefing, "briefing");
@@ -44,6 +71,43 @@ export default function App() {
   }, [userId]);
 
   useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+  }, [theme]);
+
+  // 한국어가 아니면 화면 문구를 AI 번역본으로 바꾼다 (번역이 오기 전까지는 한국어로 보인다)
+  useEffect(() => {
+    document.documentElement.lang = lang;
+    setTranslating(false);
+    if (lang === "ko") {
+      setT(KO);
+      return;
+    }
+    const sig = JSON.stringify(KO);
+    const cached = cachedStrings(lang, sig);
+    if (cached) {
+      setT(cached);
+      return;
+    }
+    let cancelled = false;
+    setTranslating(true);
+    api.i18n(lang, KO)
+      .then((res) => {
+        if (cancelled) return;
+        setT(res.strings);
+        if (res.translated) {
+          try {
+            localStorage.setItem(`settle_i18n_${lang}`, JSON.stringify({ sig, strings: res.strings }));
+          } catch {}
+        }
+      })
+      .catch(() => !cancelled && setT(KO))
+      .finally(() => !cancelled && setTranslating(false));
+    return () => {
+      cancelled = true;
+    };
+  }, [lang]);
+
+  useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, busy]);
 
@@ -51,6 +115,7 @@ export default function App() {
     setMessages((m) => [...m, { role: "assistant", content: res.reply, files: res.files, kind }]);
     setLog((l) => [{ at: new Date().toLocaleTimeString(), ms: res.elapsed_ms, trace: res.trace }, ...l]);
     setRoadmap(res.state.roadmap);
+    setSituations(res.state.situations || []);
     setDday(res.state.dday_label);
   }
 
@@ -72,10 +137,16 @@ export default function App() {
 
   async function resetAll() {
     await api.reset(userId);
-    setMessages([{ role: "assistant", content: t.welcome }]);
+    setMessages([WELCOME]);
     setRoadmap([]);
+    setSituations([]);
     setDday(null);
     setLog([]);
+  }
+
+  function changeTheme(next) {
+    setTheme(next);
+    localStorage.setItem("settle_theme", next);
   }
 
   function changeLang(l) {
@@ -86,17 +157,27 @@ export default function App() {
   return (
     <div className="app">
       <header className="top">
-        <div>
-          <h1>{t.title}</h1>
-          <p>{t.subtitle}</p>
+        <div className="brand">
+          <Taegukgi className="flag" title={t.flag} />
+          <div>
+            <h1>{t.title}</h1>
+            <p>{t.subtitle}</p>
+          </div>
         </div>
         <div className="controls">
+          <div className="theme-toggle" role="group" aria-label={t.theme}>
+            <button type="button" aria-pressed={theme === "light"} onClick={() => changeTheme("light")} aria-label={t.themeLight} title={t.themeLight}>☀<span className="label"> {t.themeLight}</span></button>
+            <button type="button" aria-pressed={theme === "dark"} onClick={() => changeTheme("dark")} aria-label={t.themeDark} title={t.themeDark}>☾<span className="label"> {t.themeDark}</span></button>
+          </div>
           <select id="lang" value={lang} onChange={(e) => changeLang(e.target.value)}>
             {Object.entries(LANGS).map(([k, v]) => (
               <option key={k} value={k}>{v}</option>
             ))}
           </select>
           <button className="ghost" onClick={resetAll}>{t.reset}</button>
+          {lang !== "ko" && (
+            <span className="ai-badge" aria-live="polite">{translating ? t.translating : t.aiTranslated}</span>
+          )}
         </div>
       </header>
 
@@ -105,7 +186,7 @@ export default function App() {
           <div className="messages">
             {messages.map((m, i) => (
               <div key={i} className={`msg ${m.role} ${m.kind || ""}`}>
-                <div className="bubble">{m.content}</div>
+                <div className="bubble">{m.kind === "welcome" ? t.welcome : m.content}</div>
                 {m.files?.map((f) => (
                   <a key={f} className="file" href={f}>{t.download}</a>
                 ))}
@@ -121,6 +202,38 @@ export default function App() {
         </section>
 
         <aside className="side">
+          <div className="panel region">
+            <KoreaMap className="map" title={t.mapLabel} />
+            <div>
+              <div className="region-name">{t.region}</div>
+              <p className="muted small">{t.regionNote}</p>
+            </div>
+          </div>
+
+          <div className="panel">
+            <h2>{t.situations}</h2>
+            {situations.length === 0 ? (
+              <p className="muted">{t.emptySituations}</p>
+            ) : (
+              <ul className="situations">
+                {[...situations]
+                  .sort((a, b) => (a.status === "해결됨") - (b.status === "해결됨"))
+                  .map((s) => (
+                    <li key={s.id} className={`sit ${s.status === "해결됨" ? "resolved" : ""} u-${s.urgency}`}>
+                      <div className="sit-head">
+                        <span className="need">{t.needs?.[s.need] ?? s.need}</span>
+                        <span className="urgency">{t.urgency?.[s.urgency] ?? s.urgency}</span>
+                        {s.confidence === "추정" && <span className="guess">{t.guessed}</span>}
+                        {s.status === "해결됨" && <span className="guess">{t.resolved}</span>}
+                      </div>
+                      <p className="sit-text">{s.understanding}</p>
+                      <p className="sit-evidence">{t.evidence}: “{s.evidence}”</p>
+                    </li>
+                  ))}
+              </ul>
+            )}
+          </div>
+
           <div className="panel">
             <h2>
               {t.roadmap}
@@ -132,8 +245,10 @@ export default function App() {
               <ol className="roadmap">
                 {roadmap.map((s) => (
                   <li key={s.id} className={s.done ? "done" : ""}>
-                    <span className="cat">{t.categories?.[s.category] ?? s.category}</span>
-                    {t.steps?.[s.id] ?? s.title}
+                    <span>
+                      <span className="cat">{t.categories?.[s.category] ?? s.category}</span>
+                      {t.steps?.[s.id] ?? s.title}
+                    </span>
                   </li>
                 ))}
               </ol>

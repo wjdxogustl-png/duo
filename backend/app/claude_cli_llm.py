@@ -14,6 +14,7 @@ import os
 import re
 import shutil
 import subprocess
+import tempfile
 import uuid
 from pathlib import Path
 
@@ -102,6 +103,51 @@ def _extract_json(text: str) -> dict | None:
     return None
 
 
+def write_system_prompt(folder: str | Path, system: str) -> str:
+    """시스템 프롬프트를 파일로 저장해 --system-prompt-file 로 넘긴다.
+    Windows 에서 npm 으로 설치한 claude 는 claude.CMD 로 실행되는데, 이때 여러 줄 인자는
+    첫 줄에서 잘린다. 그래서 --system-prompt 로 넘기면 행동 원칙이 대부분 빠진다."""
+    path = Path(folder) / "system_prompt.txt"
+    path.write_text(system, encoding="utf-8")
+    return str(path)
+
+
+def _run_cli(cli: str, model: str, system: str, prompt: str, timeout: int) -> str:
+    """내장 도구를 모두 끈 채 `claude -p` 를 한 번 실행하고 결과 글을 돌려준다."""
+    env = os.environ.copy()
+    env.pop("ANTHROPIC_API_KEY", None)  # 구독 로그인으로 실행되게 한다
+    with tempfile.TemporaryDirectory(prefix="settle_") as tmp:
+        cmd = [
+            cli, "-p",
+            "--output-format", "json",
+            "--tools", "",
+            "--system-prompt-file", write_system_prompt(tmp, system),
+            "--model", model,
+            "--no-session-persistence",
+            "--strict-mcp-config",
+        ]
+        proc = subprocess.run(
+            cmd, input=prompt, capture_output=True, text=True,
+            encoding="utf-8", timeout=timeout, env=env,
+        )
+    try:
+        outer = json.loads(proc.stdout)
+    except ValueError:
+        raise RuntimeError(f"claude CLI 오류 (코드 {proc.returncode}): {(proc.stderr or proc.stdout).strip()[:500]}") from None
+    if outer.get("is_error") or proc.returncode != 0:
+        msg = outer.get("result") or proc.stderr.strip()
+        if "login" in str(msg).lower():
+            msg = f"{msg} → 터미널에서 claude 를 실행해 로그인하세요."
+        raise RuntimeError(f"claude CLI 오류: {msg}")
+    return outer.get("result") or ""
+
+
+def run_cli_text(system: str, prompt: str) -> str:
+    """도구 없이 글만 받을 때 (화면 문구 번역 등)."""
+    return _run_cli(_cli_path(), os.getenv("CLAUDE_CLI_MODEL", "sonnet"), system, prompt,
+                    int(os.getenv("CLAUDE_CLI_TIMEOUT", "120")))
+
+
 class ClaudeCLIModel:
     """invoke(messages) -> AIMessage. agent.py 루프가 기대하는 형태를 흉내 낸다."""
 
@@ -119,31 +165,7 @@ class ClaudeCLIModel:
             + "\n\n## 지금까지의 대화\n" + _transcript(messages)
             + "\n\n위 대화의 다음 차례다. 응답 형식에 맞는 JSON 하나만 출력하라."
         )
-        cmd = [
-            self.cli, "-p",
-            "--output-format", "json",
-            "--tools", "",
-            "--system-prompt", system + PROTOCOL,
-            "--model", self.model,
-            "--no-session-persistence",
-            "--strict-mcp-config",
-        ]
-        env = os.environ.copy()
-        env.pop("ANTHROPIC_API_KEY", None)  # 구독 로그인으로 실행되게 한다
-        proc = subprocess.run(
-            cmd, input=prompt, capture_output=True, text=True,
-            encoding="utf-8", timeout=self.timeout, env=env,
-        )
-        try:
-            outer = json.loads(proc.stdout)
-        except ValueError:
-            raise RuntimeError(f"claude CLI 오류 (코드 {proc.returncode}): {(proc.stderr or proc.stdout).strip()[:500]}") from None
-        if outer.get("is_error") or proc.returncode != 0:
-            msg = outer.get("result") or proc.stderr.strip()
-            if "login" in str(msg).lower():
-                msg = f"{msg} → 터미널에서 claude 를 실행해 로그인하세요."
-            raise RuntimeError(f"claude CLI 오류: {msg}")
-        text = outer.get("result") or ""
+        text = _run_cli(self.cli, self.model, system + PROTOCOL, prompt, self.timeout)
 
         data = _extract_json(text)
         if not isinstance(data, dict):
