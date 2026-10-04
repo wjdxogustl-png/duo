@@ -1,16 +1,14 @@
-"""규칙 기반 도구 검증. 정량 목표(신청서 반영 정확도 100%) 증빙에도 그대로 사용한다.
+"""규칙 기반 도구 검증. (신청서 반영 정확도 100% 증빙은 test_draft.py)
 
 실행: (backend 폴더에서) python -m pytest -q
 """
 from datetime import date
 
 import pytest
-from docx import Document
 
 from app import memory
 from app.tools import programs, risk
 from app.tools.dday import compute_dday
-from app.tools.document import fill_document
 from app.tools.roadmap import generate_steps
 
 
@@ -18,8 +16,6 @@ from app.tools.roadmap import generate_steps
 def tmp_data(tmp_path, monkeypatch):
     monkeypatch.setattr(memory, "USERS_DIR", tmp_path / "users")
     monkeypatch.setattr(memory, "OUTPUT_DIR", tmp_path / "output")
-    monkeypatch.setattr("app.tools.document.OUTPUT_DIR", tmp_path / "output")
-    monkeypatch.setattr("app.tools.document.TEMPLATE_PATH", tmp_path / "tpl.docx")
     memory.current_user.set("test")
 
 
@@ -134,24 +130,3 @@ def test_search_programs_by_region_and_category():
 @pytest.mark.parametrize("region", ["김해시", "창원특례시", "경상남도"])
 def test_search_programs_region_variants(region):
     assert programs.search_programs(region=region)["count"] >= 1
-
-
-# --- 신청서: 입력값이 100% 반영되는지 ---
-
-def test_document_fields_filled_exactly():
-    values = {"name": "Nguyen Van A", "phone": "010-0000-0000", "region": "김해",
-              "institution": "테스트 기관", "preferred_time": "평일 저녁", "korean_level": "기초"}
-    path = fill_document(values, "t.docx")
-    cells = [c.text for row in Document(path).tables[0].rows for c in row.cells]
-    for v in values.values():
-        assert v in cells
-    full = "\n".join(p.text for p in Document(path).paragraphs) + "\n".join(cells)
-    assert "{{" not in full
-
-
-def test_document_filename_sanitized(tmp_path):
-    from app.tools.document import generate_application_doc
-    memory.current_user.set("../../evil")
-    r = generate_application_doc("A", "010", "기관", "저녁")
-    assert r["file"].startswith("evil_")
-    assert (tmp_path / "output" / r["file"]).exists()

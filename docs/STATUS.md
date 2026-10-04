@@ -9,12 +9,12 @@
 |---|---|
 | 백엔드 (FastAPI) | 동작 |
 | 프론트엔드 (React/Vite) | 동작, 빌드 정상 |
-| 자동 테스트 | 53 통과 · 5 건너뜀 (macOS/Linux 전용 가짜 CLI 테스트) |
+| 자동 테스트 | 61 통과 · 5 건너뜀 (macOS/Linux 전용 가짜 CLI 테스트) |
 | 에이전트 도구 | 9개 (액션 카드 `suggest_actions` 추가) |
 | 화면 언어 | 5개 (한국어 · English · Tiếng Việt · 日本語 · 中文) |
 | 간접 표현 평가 | 키워드 59% → 에이전트 98% (`claude_agent`, 100문항). **처음 보는 999문항(holdout)은 아직 측정 전** |
 | 지원사업 DB | 26건 (웹 확인, 전화 확인 전) |
-| 신청서 템플릿 | **팀 템플릿 없음 — 기본 양식 자동 생성 중** |
+| 신청서 초안 | 모든 지원사업 대상, 화면에서 고침 → Word·복사, 고유식별정보 자동 삭제 |
 | `anthropic` 모드 (시연·정량 측정용) | **API 키 없어 미검증** |
 
 ## 브랜치 이력
@@ -42,7 +42,7 @@ e7be94a  Merge origin/taehyeon
 | `build_roadmap` / `update_roadmap_step` | 규칙 기반 정착 로드맵 생성·단계 완료 처리 |
 | `search_programs` | 지원사업 DB 검색 (출처 포함) |
 | `set_dday_reminder` | 체류 종료일 D-day |
-| `generate_application_doc` | 한국어교육 신청서 초안 docx |
+| `draft_application` | 지원사업 신청서 초안 (화면에서 고침, 고유식별정보 차단, docx 내려받기) |
 | `note_situation` | 맥락으로 판단한 숨은 필요를 근거 문장과 함께 기억 (taehyeon 신규) |
 
 ### API
@@ -85,7 +85,7 @@ e7be94a  Merge origin/taehyeon
 |---|---|---|
 | 로드맵 생성 10초 이내 | `claude_agent` 한 턴 20.3초 (도구 9회). `anthropic` 모드 측정 안 함 | 미측정 |
 | 지원사업 DB 20건 이상 | 26건 | 달성 (전화 확인 남음) |
-| 신청서 입력값 반영 정확도 100% | 자동 테스트로 확인 | 달성 |
+| 신청서 입력값 반영 정확도 100% | 화면에서 고친 값이 Word 파일에 그대로 들어가는지 자동 테스트(`test_draft.py`) | 달성 |
 
 ## 남은 일
 
@@ -99,7 +99,6 @@ e7be94a  Merge origin/taehyeon
 - [ ] 시연영상(3분), 개발완료보고서, AI Agent 기술설명서, 발표자료(10장), 별지2
 
 **품질**
-- [ ] (조환성) `data/templates/korean_class_application.docx` 팀 템플릿 적용
 - [ ] 화면 번역 대조 (en/vi/ja/zh). 병합 후 새로 넣은 문구(상황 패널, 도구 이름 등)는 검토 필요
 - [ ] (정태현) `tools/roadmap.py` 규칙·문구를 조사 결과에 맞게 수정
 - [ ] (정태현) `tools/risk.py` 채점 기준 확정 → 발표자료에 표로 공개

@@ -13,5 +13,8 @@ export const api = {
   briefing: (userId, language) => request(`/briefing/${userId}?language=${language}`),
   state: (userId) => request(`/state/${userId}`),
   reset: (userId) => request(`/state/${userId}`, { method: "DELETE" }),
+  saveDraft: (userId, draftId, values) =>
+    request(`/drafts/${userId}/${draftId}`, { method: "PUT", body: JSON.stringify({ values }) }),
+  draftDocx: (userId, draftId) => request(`/drafts/${userId}/${draftId}/docx`, { method: "POST" }),
   i18n: (language, source) => request("/i18n", { method: "POST", body: JSON.stringify({ language, source }) }),
 };

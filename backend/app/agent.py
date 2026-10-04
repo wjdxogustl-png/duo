@@ -47,7 +47,9 @@ SYSTEM_PROMPT = """너는 경상남도에 새로 정착한 이주민을 돕는 '
    score_risk 결과의 missing 이 있으면 그 항목을 먼저 쉽게 되묻고, save_profile 로 저장한 뒤 다시 score_risk 를 호출한다.
 3. recommend_mentoring_first 가 true 면 멘토·상담(search_programs category=멘토링 또는 노동상담)을 먼저 제안한다.
 4. 로드맵 단계마다 search_programs 로 실제 지원사업을 찾아 연결한다. DB에 없는 사업을 지어내지 않는다.
-5. 신청서가 필요하면 필요한 값을 모두 확인한 뒤 generate_application_doc 을 호출하고 다운로드 링크를 안내한다.
+5. 사용자가 지원사업에 신청하고 싶어 하면 draft_application 으로 신청서 초안을 만든다. 초안은 화면에 보이고 사용자가 직접 고친다.
+   이름·연락처를 채팅으로 모으지 않는다. 외국인등록번호·여권번호·계좌번호는 묻지도 받지도 않는다.
+   제출은 사용자가 기관에 직접 한다고 안내하고, 대신 제출하겠다고 말하지 않는다.
 6. 사용자가 체류 종료일을 말하면 set_dday_reminder 로 저장한다.
 7. 서로 의존하지 않는 도구(예: 여러 단계의 search_programs)는 한 번에 함께 호출한다.
 8. save_profile · note_situation 결과에 pipeline 이 있으면, 바뀐 정보 때문에 정착 안정도·로드맵·지원사업이
@@ -157,6 +159,14 @@ def actions_of(trace: list[dict]) -> list[dict]:
     return []
 
 
+def draft_of(trace: list[dict]) -> dict | None:
+    """이번 턴에 만든 마지막 신청서 초안(테스트 대상)."""
+    for c in reversed(trace):
+        if c["tool"] == "draft_application" and isinstance(c.get("result"), dict) and c["result"].get("draft"):
+            return c["result"]["draft"]
+    return None
+
+
 def run(user_id: str, message: str, language: str = "ko", internal: bool = False) -> dict:
     """한 턴 실행. internal=True 면 사용자 메시지를 대화 기록에 남기지 않는다(능동 브리핑용)."""
     memory.current_user.set(user_id)
@@ -180,34 +190,32 @@ def run(user_id: str, message: str, language: str = "ko", internal: bool = False
     messages.append(HumanMessage(message_for_model))
 
     model, provider = llm.get_model(ALL_TOOLS)
-    trace, files = [], []
+    trace = []
     reply = ""
     if hasattr(model, "run_turn"):
         # claude_agent 모드: Claude Code가 MCP로 도구를 직접 실행하며 한 턴을 끝낸다
         reply, trace = model.run_turn(messages, user_id)
-        for c in trace:
-            r = c.get("result")
-            if c["tool"] == "generate_application_doc" and isinstance(r, dict) and r.get("download_url"):
-                files.append(r["download_url"])
     else:
-        reply = _run_loop(model, messages, trace, files)
+        reply = _run_loop(model, messages, trace)
     if not reply.strip():
         reply = FALLBACK_REPLY.get(lang, FALLBACK_REPLY["ko"])
     actions = actions_of(trace)
+    draft = draft_of(trace)
 
     # 도구가 상태를 바꿨을 수 있으므로 다시 읽은 뒤 대화 기록만 추가 (빈 내용은 저장하지 않는다)
     state = memory.load()
     if not internal and message.strip():
         state["history"].append({"role": "user", "content": message})
     # 액션 카드도 함께 저장해 새로고침 뒤에도 마지막 답장의 버튼이 다시 보이게 한다
-    state["history"].append({"role": "assistant", "content": reply, **({"actions": actions} if actions else {})})
+    state["history"].append({"role": "assistant", "content": reply, **({"actions": actions} if actions else {}),
+                             **({"draft_id": draft["id"]} if draft else {})})
     memory.save(state)
 
     return {
         "reply": reply,
         "trace": trace,
-        "files": files,
         "actions": actions,
+        "draft": draft,
         "elapsed_ms": round((time.perf_counter() - started) * 1000),
         "provider": provider,
         "state": {
@@ -217,7 +225,7 @@ def run(user_id: str, message: str, language: str = "ko", internal: bool = False
     }
 
 
-def _run_loop(model, messages, trace, files) -> str:
+def _run_loop(model, messages, trace) -> str:
     """도구 호출 루프: 모델이 판단하고 파이썬이 도구를 실행한다.
     도구를 부르기 전에 쓴 글도 모아 답장에 넣는다 (본문 → 도구 → 한 줄 순서로 써도 본문이 남게)."""
     texts = []
@@ -240,8 +248,6 @@ def _run_loop(model, messages, trace, files) -> str:
                 "result": json.loads(result) if result.startswith("{") else result,
                 "ms": round((time.perf_counter() - t0) * 1000),
             })
-            if call["name"] == "generate_application_doc" and '"download_url"' in result:
-                files.append(json.loads(result)["download_url"])
             messages.append(ToolMessage(result, tool_call_id=call["id"]))
     return "처리 단계가 너무 많아 멈췄습니다. 질문을 조금 나눠서 다시 말씀해 주세요."
 

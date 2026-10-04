@@ -56,7 +56,10 @@ export default function App() {
       setBusy(true);
       try {
         const saved = await api.state(userId);
-        const restored = saved.history.map((h) => ({ role: h.role, content: h.content, actions: h.actions }));
+        const drafts = Object.fromEntries((saved.drafts || []).map((d) => [d.id, d]));
+        const restored = saved.history.map((h) => ({
+          role: h.role, content: h.content, actions: h.actions, draft: drafts[h.draft_id],
+        }));
         setMessages(restored.length ? restored : [WELCOME]);
         setRoadmap(saved.roadmap);
         setSituations(saved.situations || []);
@@ -117,7 +120,7 @@ export default function App() {
   }, [messages, busy]);
 
   function applyResult(res, kind = "chat") {
-    setMessages((m) => [...m, { role: "assistant", content: res.reply, files: res.files, actions: res.actions, kind }]);
+    setMessages((m) => [...m, { role: "assistant", content: res.reply, actions: res.actions, draft: res.draft, kind }]);
     setLog((l) => [{ at: new Date(), ms: res.elapsed_ms, trace: res.trace, kind }, ...l]);
     setRoadmap(res.state.roadmap);
     setSituations(res.state.situations || []);
@@ -198,9 +201,7 @@ export default function App() {
             {messages.map((m, i) => (
               <div key={i} className={`msg ${m.role} ${m.kind || ""}`}>
                 <div className="bubble">{m.kind === "welcome" ? t.welcome : m.content}</div>
-                {m.files?.map((f) => (
-                  <a key={f} className="file" href={f}>{t.download}</a>
-                ))}
+                {m.draft && <DraftCard key={m.draft.id} draft={m.draft} userId={userId} t={t} />}
                 {/* 지난 답장의 카드는 이미 지나간 제안이므로 마지막 답장에만 보인다 */}
                 {i === messages.length - 1 && m.actions?.length > 0 && (
                   <ActionCards actions={m.actions} title={t.nextActions} disabled={busy} onSay={say} />
@@ -334,6 +335,82 @@ function ActionCards({ actions, title, disabled, onSay }) {
           </button>
         );
       })}
+    </div>
+  );
+}
+
+// 신청서 초안: 칸마다 직접 고치고, 복사하거나 Word 로 내려받아 기관에 직접 제출한다 (대신 제출하지 않음)
+function DraftCard({ draft, userId, t }) {
+  const [values, setValues] = useState(() => Object.fromEntries(draft.fields.map((f) => [f.key, f.value])));
+  const [status, setStatus] = useState("");
+  const [busy, setBusy] = useState(false);
+  const p = draft.program;
+
+  // 고친 값을 서버에 저장한다. 서버가 고유식별정보를 지웠으면 화면 값도 맞추고 알려 준다
+  async function save() {
+    const res = await api.saveDraft(userId, draft.id, values);
+    setValues(Object.fromEntries(res.draft.fields.map((f) => [f.key, f.value])));
+    setStatus(res.removed_sensitive.length ? t.draftRemoved.replace("{items}", res.removed_sensitive.join(", ")) : t.draftSaved);
+    return res.draft;
+  }
+
+  async function run(fn) {
+    setBusy(true);
+    try {
+      await fn();
+    } catch (e) {
+      setStatus(String(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const copy = () => run(async () => {
+    const saved = await save();
+    const text = [p.name, ...saved.fields.map((f) => `${f.label}: ${f.value}`)].join("\n");
+    await navigator.clipboard.writeText(text);
+    setStatus((s) => (s === t.draftSaved ? t.draftCopied : s));
+  });
+
+  const download = () => run(async () => {
+    await save();
+    const { download_url } = await api.draftDocx(userId, draft.id);
+    window.location.href = download_url;
+  });
+
+  return (
+    <div className="draft">
+      <div className="draft-head">
+        <span className="draft-badge">{t.draftTitle}</span>
+        <strong>{t.draftFor.replace("{name}", p.name)}</strong>
+      </div>
+      <p className="draft-hint">{t.draftHint}</p>
+      <div className="draft-fields">
+        {draft.fields.map((f) => {
+          const Input = f.multiline ? "textarea" : "input";
+          return (
+            <label key={f.key} className={f.multiline ? "wide" : ""}>
+              <span>{f.label}</span>
+              <Input
+                value={values[f.key]}
+                placeholder={f.hint}
+                rows={f.multiline ? 3 : undefined}
+                className={values[f.key] ? "" : "empty"}
+                onChange={(e) => setValues((v) => ({ ...v, [f.key]: e.target.value }))}
+              />
+            </label>
+          );
+        })}
+      </div>
+      <div className="draft-buttons">
+        <button type="button" disabled={busy} onClick={download}>{t.draftDownload}</button>
+        <button type="button" className="ghost" disabled={busy} onClick={copy}>{t.draftCopy}</button>
+        {p.source_url && <a className="ghost-link" href={p.source_url} target="_blank" rel="noreferrer">↗ {t.draftOpen}</a>}
+        {status && <span className="draft-status" aria-live="polite">{status}</span>}
+      </div>
+      <ul className="draft-notices">
+        {[t.draftNotice1, t.draftNotice2, t.draftNotice3, t.draftNotice4].map((n) => <li key={n}>{n}</li>)}
+      </ul>
     </div>
   );
 }

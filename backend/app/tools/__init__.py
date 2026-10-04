@@ -10,7 +10,8 @@ from langchain_core.tools import StructuredTool, tool
 
 from pydantic import BaseModel, Field
 
-from . import dday, document, programs, risk, roadmap
+from . import dday, programs, risk, roadmap
+from .draft import draft_application as _draft_application
 from .actions import Action, suggest_actions as _suggest_actions
 from .situation import SituationNote, note_situation as _note_situation
 from .profile import ProfileUpdate, save_profile as _save_profile
@@ -97,10 +98,14 @@ def set_dday_reminder(end_date: str) -> str:
 
 
 @tool
-def generate_application_doc(name: str, phone: str, institution: str, preferred_time: str) -> str:
-    """한국어교육 신청서 초안(docx)을 만든다. 이름·연락처·희망 기관·희망 시간대를 모두 확인한 뒤 호출한다.
-    결과의 download_url 을 사용자에게 알려 주고, 직접 제출해야 한다고 안내한다."""
-    return _json(document.generate_application_doc(name, phone, institution, preferred_time))
+def draft_application(program_id: str, preferred_time: str = "", motivation: str = "", requests: str = "") -> str:
+    """사용자가 지원사업에 신청하고 싶어 하면, 그 사업의 신청서 초안을 만들어 화면에 보여 준다.
+    program_id 는 search_programs 결과의 id. 이름·지역·거주 기간·한국어 수준은 프로필에서 자동으로 채운다.
+    preferred_time·motivation·requests 는 사용자가 대화에서 말한 사실로만 짧게 쓴다 (한국어, 사용자 1인칭).
+    모르는 내용은 지어내지 말고 비워 둔다. 사용자가 화면에서 직접 고치고 채운다.
+    연락처는 채팅으로 묻지 않는다(화면에서 직접 입력). 외국인등록번호·여권번호·계좌번호는 묻지도 적지도 않는다.
+    대신 제출하지 않는다. 결과의 empty_fields 는 사용자가 채울 칸이므로 답장에서 짧게 알려 준다."""
+    return _json(_draft_application(program_id, preferred_time, motivation, requests))
 
 
 note_situation = StructuredTool.from_function(
@@ -148,6 +153,6 @@ ALL_TOOLS = [
     search_programs,
     score_risk,
     set_dday_reminder,
-    generate_application_doc,
+    draft_application,
     suggest_actions,
 ]

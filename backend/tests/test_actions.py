@@ -108,7 +108,7 @@ def test_tool_loop_reply_keeps_text_before_tools():
             return self.replies.pop(0)
 
     trace = []
-    reply = _run_loop(FakeModel(), [], trace, [])
+    reply = _run_loop(FakeModel(), [], trace)
     assert reply == "밤에 아이 맡길 곳이 필요하시겠어요.\n\n아래 버튼으로 바로 전화할 수 있어요."
     assert trace[0]["result"]["shown"][0]["phone"] == "1345"
 
