@@ -19,6 +19,7 @@
 4. 경남 지원사업 연결 — 로드맵 단계마다 시·군 지원사업을 출처와 함께 찾아 줍니다
 5. 신청서 초안 작성 — 한국어 교실 신청서를 docx로 만들어 내려받을 수 있습니다
 6. 능동 케어 — 다시 방문하면 체류 종료 D-day와 남은 단계를 에이전트가 먼저 안내합니다
+7. 액션 카드 — 에이전트가 판단한 다음 행동(신청서 만들기, 상담 창구 전화, 지원사업 출처 열기)을 답장 아래 버튼으로 먼저 내밉니다
 
 화면 오른쪽 **에이전트 작업 기록**에서 에이전트가 어떤 도구를 왜 호출했는지 그대로 볼 수 있습니다.
 
@@ -44,7 +45,7 @@ Duo/
 │  │  ├─ mock_llm.py         키 없이 개발할 때 쓰는 규칙 기반 가짜 에이전트 (ko/en/vi)
 │  │  ├─ claude_cli_llm.py   Claude Code CLI 로 판단만 받는 모드 (개발용)
 │  │  ├─ claude_agent_llm.py Claude Code 가 MCP 로 도구를 직접 실행하는 모드 (개발용)
-│  │  ├─ mcp_server.py       claude_agent 모드용 MCP 서버 (도구 7개 노출)
+│  │  ├─ mcp_server.py       claude_agent 모드용 MCP 서버 (도구 9개 노출)
 │  │  ├─ translate.py        화면 문구 AI 자동 번역 + 캐시
 │  │  ├─ memory.py           사용자별 상태(프로필·로드맵·D-day·대화) JSON 저장
 │  │  └─ tools/
@@ -54,9 +55,11 @@ Duo/
 │  │     ├─ programs.py      search_programs       지원사업 DB 검색
 │  │     ├─ risk.py          score_risk            정착 안정도 채점 기준
 │  │     ├─ dday.py          set_dday_reminder     체류 종료일 D-day
-│  │     └─ document.py      generate_application_doc  신청서 초안 docx
+│  │     ├─ document.py      generate_application_doc  신청서 초안 docx
+│  │     ├─ situation.py     note_situation        맥락으로 판단한 숨은 필요 기억
+│  │     └─ actions.py       suggest_actions       다음 행동 카드 (번호·주소는 DB·공식 창구만 허용)
 │  ├─ data/
-│  │  ├─ programs.json       팀 조사 지원사업 DB (현재 예시 2건 → 20건 이상으로 교체)
+│  │  ├─ programs.json       경남 지원사업 DB 26건 (공식 페이지·기사로 확인, 출처·확인일 포함)
 │  │  └─ i18n/               AI 번역된 화면 문구 캐시 (en/ja/zh, 원본 해시별)
 │  ├─ eval/                  간접 표현 평가 세트 100개 + 키워드 방식 비교 실행기
 │  └─ tests/                 도구·mock·번역·CLI 테스트 (정량 목표 증빙용)
@@ -84,14 +87,16 @@ Duo/
 ## 구현 현황
 
 **완료**
-- [x] 도구 7개와 API (채팅, 능동 브리핑, 상태 조회·초기화, 지원사업, 신청서 다운로드)
+- [x] 도구 9개와 API (채팅, 능동 브리핑, 상태 조회·초기화, 지원사업, 신청서 다운로드)
 - [x] 다국어 채팅 화면, 로드맵·작업 기록 패널, 라이트·다크 모드
 - [x] 사용자별 메모리와 재방문 브리핑 (6시간 간격)
 - [x] LLM 제공자 전환, Claude Code를 MCP로 연결해 실제 도구 호출 확인
 - [x] 규칙 기반 도구 자동 테스트
+- [x] 액션 카드 (에이전트가 다음 행동을 버튼으로 제안)
+- [x] 지원사업 DB 26건 (창원·김해·양산·진주·거제·경남 전체)
 
 **진행 중**
-- [ ] 지원사업 DB 20건 이상 (현재 형식 예시 2건)
+- [ ] 지원사업 DB 전화 확인 (번호가 출처마다 다른 2건은 `note` 참고), 통영·사천·밀양 등 나머지 시·군 추가
 - [ ] 신청서 docx 팀 템플릿 적용
 - [ ] 영어·베트남어 번역 대조
 - [ ] 베트남어 시연 시나리오 전체 확인, 응답 시간 측정 (목표 10초 이내)
@@ -130,7 +135,7 @@ npm run dev                       # http://localhost:5173
 **테스트**
 ```bash
 cd backend
-python -m pytest -q             # Windows: 25 passed, 3 skipped (가짜 CLI 테스트는 macOS/Linux 전용)
+python -m pytest -q             # Windows: 50 passed, 5 skipped (가짜 CLI 테스트는 macOS/Linux 전용)
 ```
 
 ## 에이전트 동작 방식
@@ -165,7 +170,8 @@ python -m eval.run_eval --mode both      # 키워드 vs 에이전트 (.env 의 L
 
 ## 팀 작업 TODO
 
-- [ ] (조환성) `data/programs.json` 예시 2건 삭제, 실제 조사 사업 20건 이상 입력 (`source_url`, `checked_at` 필수)
+- [x] `data/programs.json` 실제 운영 사업 26건 입력 (`source_url`, `checked_at`, `verification` 포함)
+- [ ] (조환성) DB 사업 전화 확인 후 `verification` 갱신, 비어 있는 비용·반별 시간 보충
 - [ ] (정태현) `tools/roadmap.py` 규칙·문구를 조사 결과에 맞게 수정
 - [ ] (정태현) `tools/risk.py` 채점 기준 확정 → 발표자료에 표로 공개
 - [ ] (조환성) `data/templates/korean_class_application.docx` 팀 템플릿으로 교체 (`{{name}}` 등 자리표시자 유지). 지금은 없어서 코드가 기본 양식을 자동 생성함

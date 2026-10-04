@@ -31,8 +31,8 @@ FIELD_LABELS = {
     "knows_support_programs": "지원사업 인지",
 }
 
-PROGRAM_FIELDS = ("id", "name", "region", "category", "target", "cost", "schedule", "contact",
-                  "how_to_apply", "source_url", "checked_at")
+PROGRAM_FIELDS = ("id", "name", "region", "category", "target", "cost", "schedule", "contact", "address",
+                  "languages", "how_to_apply", "source_url", "checked_at", "verification", "note")
 
 
 def detect_changes(before: dict, after: dict) -> dict:
