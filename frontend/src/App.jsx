@@ -56,7 +56,7 @@ export default function App() {
       setBusy(true);
       try {
         const saved = await api.state(userId);
-        const restored = saved.history.map((h) => ({ role: h.role, content: h.content }));
+        const restored = saved.history.map((h) => ({ role: h.role, content: h.content, actions: h.actions }));
         setMessages(restored.length ? restored : [WELCOME]);
         setRoadmap(saved.roadmap);
         setSituations(saved.situations || []);
@@ -117,7 +117,7 @@ export default function App() {
   }, [messages, busy]);
 
   function applyResult(res, kind = "chat") {
-    setMessages((m) => [...m, { role: "assistant", content: res.reply, files: res.files, kind }]);
+    setMessages((m) => [...m, { role: "assistant", content: res.reply, files: res.files, actions: res.actions, kind }]);
     setLog((l) => [{ at: new Date(), ms: res.elapsed_ms, trace: res.trace, kind }, ...l]);
     setRoadmap(res.state.roadmap);
     setSituations(res.state.situations || []);
@@ -129,6 +129,12 @@ export default function App() {
     const text = input.trim();
     if (!text || busy) return;
     setInput("");
+    await say(text);
+  }
+
+  // 입력창 전송과 액션 카드(say) 클릭이 같은 길로 메시지를 보낸다
+  async function say(text) {
+    if (!text || busy) return;
     setMessages((m) => [...m, { role: "user", content: text }]);
     setBusy(true);
     try {
@@ -195,6 +201,10 @@ export default function App() {
                 {m.files?.map((f) => (
                   <a key={f} className="file" href={f}>{t.download}</a>
                 ))}
+                {/* 지난 답장의 카드는 이미 지나간 제안이므로 마지막 답장에만 보인다 */}
+                {i === messages.length - 1 && m.actions?.length > 0 && (
+                  <ActionCards actions={m.actions} title={t.nextActions} disabled={busy} onSay={say} />
+                )}
               </div>
             ))}
             {busy && <div className="msg assistant"><div className="bubble muted">{t.thinking}</div></div>}
@@ -297,6 +307,33 @@ export default function App() {
           </div>
         </aside>
       </main>
+    </div>
+  );
+}
+
+// 에이전트가 판단한 다음 행동 카드. say 는 누르면 그 문장을 보내고, call·link 는 전화·출처로 바로 연결한다
+function ActionCards({ actions, title, disabled, onSay }) {
+  return (
+    <div className="actions" role="group" aria-label={title}>
+      <div className="actions-title">{title}</div>
+      {actions.map((a, i) => {
+        const body = (
+          <>
+            <span className="action-label">
+              {a.kind === "call" ? "☎ " : a.kind === "link" ? "↗ " : ""}
+              {a.label}
+            </span>
+            <span className="action-reason">{a.reason}</span>
+          </>
+        );
+        if (a.kind === "call") return <a key={i} className="action" href={`tel:${a.phone}`}>{body}</a>;
+        if (a.kind === "link") return <a key={i} className="action" href={a.url} target="_blank" rel="noreferrer">{body}</a>;
+        return (
+          <button key={i} type="button" className="action" disabled={disabled} onClick={() => onSay(a.message)}>
+            {body}
+          </button>
+        );
+      })}
     </div>
   );
 }

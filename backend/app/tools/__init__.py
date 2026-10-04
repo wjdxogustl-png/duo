@@ -8,7 +8,10 @@ from typing import Literal
 
 from langchain_core.tools import StructuredTool, tool
 
+from pydantic import BaseModel, Field
+
 from . import dday, document, programs, risk, roadmap
+from .actions import Action, suggest_actions as _suggest_actions
 from .situation import SituationNote, note_situation as _note_situation
 from .profile import ProfileUpdate, save_profile as _save_profile
 
@@ -69,9 +72,11 @@ def search_programs(
     category: Literal["한국어교육", "법률상담", "노동상담", "자녀교육", "취업", "멘토링", "생활", "행정"] | None = None,
     keyword: str | None = None,
 ) -> str:
-    """팀이 직접 조사한 경남 지원사업 DB를 검색한다.
+    """팀이 직접 조사한 경남 지원사업 DB를 검색한다. 인자를 모두 비우면 전체 목록을 돌려준다.
     category 값: 한국어교육, 법률상담, 노동상담, 자녀교육, 취업, 멘토링, 생활, 행정.
-    로드맵 단계의 category 를 그대로 넣으면 해당 단계에 맞는 사업을 찾을 수 있다."""
+    로드맵 단계의 category 를 그대로 넣으면 해당 단계에 맞는 사업을 찾을 수 있다.
+    결과의 address(주소), languages(상담·통역 언어 코드), schedule, cost 로 사용자 상황에 맞는지 판단한다.
+    note 에 확인이 필요하다고 적힌 정보는 단정하지 말고, 방문 전에 전화로 확인하라고 함께 안내한다."""
     return _json(programs.search_programs(region, category, keyword))
 
 
@@ -117,6 +122,24 @@ note_situation = StructuredTool.from_function(
 )
 
 
+class ActionList(BaseModel):
+    actions: list[Action] = Field(description="제안할 다음 행동 1~3개. 가장 중요한 것을 앞에")
+
+
+suggest_actions = StructuredTool.from_function(
+    func=lambda actions: _json(_suggest_actions([a.model_dump() if hasattr(a, "model_dump") else a for a in actions])),
+    name="suggest_actions",
+    description=(
+        "사용자가 지금 바로 할 수 있는 다음 행동 1~3개를 화면에 버튼(액션 카드)으로 보여 준다. "
+        "판단한 상황·로드맵·지원사업에서 실제로 도움이 될 행동이 보이면, 답장을 마치기 전 마지막에 호출한다. "
+        "사용자가 묻지 않았어도 곧 필요해질 행동을 먼저 내민다 (예: 신청서 초안 만들기, 체류 종료일 등록, 상담 창구 전화). "
+        "할 수 있는 행동이 없거나 정보를 되묻는 중이면 부르지 않는다. "
+        "결과의 dropped 는 검증에서 빠진 카드이므로 답장에서 그 행동을 안내하지 않는다."
+    ),
+    args_schema=ActionList,
+)
+
+
 ALL_TOOLS = [
     save_profile,
     note_situation,
@@ -126,4 +149,5 @@ ALL_TOOLS = [
     score_risk,
     set_dday_reminder,
     generate_application_doc,
+    suggest_actions,
 ]

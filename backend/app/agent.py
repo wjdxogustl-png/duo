@@ -54,6 +54,9 @@ SYSTEM_PROMPT = """너는 경상남도에 새로 정착한 이주민을 돕는 '
    이미 다시 계산되고 검증된 것이다. pipeline.summary 를 근거로 "무엇이 바뀌어서 무엇이 달라졌는지"를
    사용자에게 쉬운 말로 설명한다 (예: 회사를 그만두셔서 로드맵에 취업 지원 단계를 넣었어요).
    summary 에 없는 변화를 지어내지 않고, checks.no_match 분야는 공식 상담 창구로 안내한다.
+9. 사용자가 지금 바로 할 수 있는 다음 행동이 보이면, 답장을 마치기 전 마지막에 suggest_actions 로 1~3개를 버튼으로 내민다.
+   묻지 않았어도 판단한 상황에서 곧 필요해질 행동을 먼저 제안한다 (예: 신청서 초안 만들기, 체류 종료일 등록, 상담 창구 전화).
+   버튼이 보이므로 답장 글에서는 그 행동을 한 문장으로만 짧게 언급한다. 정보를 되묻는 중이면 부르지 않는다.
 
 지켜야 할 것
 - 비자·체류 자격·법률 문제에 대해 판단하거나 단정하지 않는다. "출입국·외국인청(1345) 등 공식 기관에서 확인하세요"라고 연결한다.
@@ -143,6 +146,14 @@ def context_block(state: dict) -> str:
     return "\n".join(lines)
 
 
+def actions_of(trace: list[dict]) -> list[dict]:
+    """이번 턴의 마지막 suggest_actions 호출에서 검증을 통과한 카드(테스트 대상)."""
+    for c in reversed(trace):
+        if c["tool"] == "suggest_actions" and isinstance(c.get("result"), dict):
+            return c["result"].get("shown") or []
+    return []
+
+
 def run(user_id: str, message: str, language: str = "ko", internal: bool = False) -> dict:
     """한 턴 실행. internal=True 면 사용자 메시지를 대화 기록에 남기지 않는다(능동 브리핑용)."""
     memory.current_user.set(user_id)
@@ -179,18 +190,21 @@ def run(user_id: str, message: str, language: str = "ko", internal: bool = False
         reply = _run_loop(model, messages, trace, files)
     if not reply.strip():
         reply = FALLBACK_REPLY.get(lang, FALLBACK_REPLY["ko"])
+    actions = actions_of(trace)
 
     # 도구가 상태를 바꿨을 수 있으므로 다시 읽은 뒤 대화 기록만 추가 (빈 내용은 저장하지 않는다)
     state = memory.load()
     if not internal and message.strip():
         state["history"].append({"role": "user", "content": message})
-    state["history"].append({"role": "assistant", "content": reply})
+    # 액션 카드도 함께 저장해 새로고침 뒤에도 마지막 답장의 버튼이 다시 보이게 한다
+    state["history"].append({"role": "assistant", "content": reply, **({"actions": actions} if actions else {})})
     memory.save(state)
 
     return {
         "reply": reply,
         "trace": trace,
         "files": files,
+        "actions": actions,
         "elapsed_ms": round((time.perf_counter() - started) * 1000),
         "provider": provider,
         "state": {

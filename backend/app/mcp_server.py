@@ -1,4 +1,4 @@
-"""정착 도우미 도구 7개를 Claude Code에 연결하는 MCP 서버 (표준 입출력, 추가 패키지 없음).
+"""정착 도우미 도구들을 Claude Code에 연결하는 MCP 서버 (표준 입출력, 추가 패키지 없음).
 
 claude_agent 모드에서 백엔드가 `claude -p --mcp-config ...`로 Claude Code를 실행하면,
 Claude Code가 이 서버를 띄워 도구 목록을 받고, 필요할 때마다 직접 도구를 호출한다.
@@ -27,15 +27,14 @@ def _tool_list() -> list[dict]:
     out = []
     for t in ALL_TOOLS:
         schema = t.tool_call_schema.model_json_schema()
-        out.append({
-            "name": t.name,
-            "description": t.description,
-            "inputSchema": {
-                "type": "object",
-                "properties": schema.get("properties", {}),
-                "required": schema.get("required", []),
-            },
-        })
+        input_schema = {
+            "type": "object",
+            "properties": schema.get("properties", {}),
+            "required": schema.get("required", []),
+        }
+        if "$defs" in schema:  # 중첩 스키마(suggest_actions 의 Action 등)가 $ref 로 가리키는 정의
+            input_schema["$defs"] = schema["$defs"]
+        out.append({"name": t.name, "description": t.description, "inputSchema": input_schema})
     return out
 
 

@@ -28,7 +28,7 @@ log = logging.getLogger("settle-agent")
 AGENT_NOTE = """
 
 ## 도구 사용
-너에게는 settle 서버의 도구 7개(mcp__settle__save_profile 등)가 연결되어 있다. 위 행동 원칙에 따라 직접 호출하라.
+너에게는 settle 서버의 도구들(mcp__settle__save_profile 등)가 연결되어 있다. 위 행동 원칙에 따라 직접 호출하라.
 서로 의존하지 않는 도구는 한 번에 함께 호출하라.
 모든 도구 실행을 마친 뒤, 사용자에게 보여 줄 최종 답장만 출력하라. 도구 이름이나 내부 과정은 답장에 쓰지 않는다.
 """
