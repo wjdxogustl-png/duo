@@ -4,6 +4,7 @@
   python -m eval.run_eval --mode keyword          # 키워드 방식만 (LLM 호출 없음, 즉시)
   python -m eval.run_eval --mode both             # 둘 다. 에이전트는 .env 의 LLM_PROVIDER 로 실행
   python -m eval.run_eval --mode both --limit 10  # 앞의 10개만
+  python -m eval.run_eval --mode agent --cat 여러턴결합  # 한 유형만
 결과는 eval/results/ 에 JSON(전체 기록)과 Markdown(완료보고서용 표)으로 저장된다.
 
 채점: 에이전트가 이번 턴에 기억한 '열린 상황'의 필요 종류(note_situation)를 정답과 비교한다.
@@ -25,9 +26,11 @@ EVAL_DIR = Path(__file__).resolve().parent
 ACK = "네, 알겠어요."  # 여러 턴 사례에서 이전 턴의 에이전트 답장 자리 (내용으로 힌트를 주지 않는다)
 
 
-def load_cases(limit: int | None = None) -> list[dict]:
+def load_cases(limit: int | None = None, cats: list[str] | None = None) -> list[dict]:
     lines = (EVAL_DIR / "cases.jsonl").read_text(encoding="utf-8").splitlines()
     cases = [json.loads(line) for line in lines if line.strip()]
+    if cats:
+        cases = [c for c in cases if c["cat"] in cats]
     return cases[:limit] if limit else cases
 
 
@@ -136,12 +139,13 @@ def main():
     p = argparse.ArgumentParser()
     p.add_argument("--mode", choices=["keyword", "agent", "both"], default="both")
     p.add_argument("--limit", type=int)
+    p.add_argument("--cat", action="append", help="이 유형만 실행 (여러 번 줄 수 있음, 예: --cat 여러턴결합)")
     p.add_argument("--workers", type=int, default=4, help="에이전트 동시 실행 수")
     args = p.parse_args()
 
     load_dotenv()
     from app import llm
-    cases = load_cases(args.limit)
+    cases = load_cases(args.limit, args.cat)
     meta = {"started": datetime.now().isoformat(timespec="seconds"), "provider": llm.provider_name()}
     results: dict[str, list[dict]] = {}
 
