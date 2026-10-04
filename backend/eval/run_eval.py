@@ -28,7 +28,7 @@ from dotenv import load_dotenv
 EVAL_DIR = Path(__file__).resolve().parent
 ACK = "네, 알겠어요."  # 여러 턴 사례에서 이전 턴의 에이전트 답장 자리 (내용으로 힌트를 주지 않는다)
 # 사용량 한도·과부하 오류: 사례 탓이 아니므로 채점하지 않고 멈춘 뒤 나중에 이어서 한다
-LIMIT_ERROR = re.compile(r"usage limit|rate limit|limit reached|hit your limit|quota|overloaded|\b429\b|\b529\b",
+LIMIT_ERROR = re.compile(r"usage limit|rate limit|session limit|limit reached|hit your (?:\w+ )?limit|quota|overloaded|\b429\b|\b529\b",
                          re.IGNORECASE)
 
 
