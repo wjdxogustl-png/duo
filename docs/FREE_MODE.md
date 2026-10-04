@@ -35,7 +35,7 @@ python -m pytest -q tests/test_mock_agent.py
 
 ## 2. claude_agent 모드 (Claude Code가 직접 도구 실행)
 
-Claude Code를 우리 도구 7개에 **MCP로 직접 연결**해서, Claude가 도구를 고르고 실행하고 결과를 보고 다음 행동을 정하는 과정을 스스로 반복한 뒤 최종 답만 돌려줍니다. 터미널에 데이터를 연결해 두고 Claude에게 명령하는 방식과 같은 구조예요.
+Claude Code를 우리 도구(현재 9개)에 **MCP로 직접 연결**해서, Claude가 도구를 고르고 실행하고 결과를 보고 다음 행동을 정하는 과정을 스스로 반복한 뒤 최종 답만 돌려줍니다. 터미널에 데이터를 연결해 두고 Claude에게 명령하는 방식과 같은 구조예요.
 
 1. 터미널에서 `claude`가 로그인돼 있는지 확인합니다.
 2. `.env`에 `LLM_PROVIDER=claude_agent`를 넣고 uvicorn을 재시작합니다. 터미널에 `LLM 제공자: claude_agent`가 찍히면 준비 완료.
@@ -54,7 +54,7 @@ VS Code·터미널에서 쓰는 Claude Code에 로그인돼 있으면 그 구독
 1. 터미널에서 `claude --version`이 되는지 확인하고, 처음이면 `claude`를 실행해 로그인합니다. (PATH 문제로 명령을 못 찾아도, Windows 기본 설치 위치 `%USERPROFILE%\.local\bin\claude.exe`는 자동으로 찾습니다.)
 2. `.env`에 `LLM_PROVIDER=claude_cli`를 넣고 uvicorn을 재시작합니다. 터미널에 `LLM 제공자: claude_cli`가 찍히면 준비 완료입니다.
 
-동작 방식: 백엔드가 `claude -p`를 실행할 때 **Claude Code의 내장 도구(Bash, 파일 편집 등)를 모두 끄고**(`--tools ""`), 우리 도구 7개의 설명과 대화 내용을 넘깁니다. Claude는 JSON으로 "어떤 도구를 어떤 값으로 부를지" 또는 "답장"만 돌려주고, 도구 실행은 지금처럼 파이썬 코드가 합니다. 그래서 채팅 내용 때문에 PC에서 명령이 실행될 위험이 없습니다.
+동작 방식: 백엔드가 `claude -p`를 실행할 때 **Claude Code의 내장 도구(Bash, 파일 편집 등)를 모두 끄고**(`--tools ""`), 우리 도구의 설명과 대화 내용을 넘깁니다. Claude는 JSON으로 "어떤 도구를 어떤 값으로 부를지" 또는 "답장"만 돌려주고, 도구 실행은 지금처럼 파이썬 코드가 합니다. 그래서 채팅 내용 때문에 PC에서 명령이 실행될 위험이 없습니다.
 
 알아 둘 점:
 - **느립니다.** 호출할 때마다 CLI를 새로 띄우므로 한 번에 몇 초씩 걸리고, 메시지 하나에 3~5번 부르면 답이 오기까지 수십 초가 걸릴 수 있어요. 응답 시간 측정(10초 목표)은 이 모드로 하지 마세요.
@@ -98,7 +98,7 @@ VS Code·터미널에서 쓰는 Claude Code에 로그인돼 있으면 그 구독
 | `backend/app/mock_llm.py` (새 파일) | 개발용 가짜 에이전트 |
 | `backend/app/claude_cli_llm.py` (새 파일) | Claude Code CLI(`claude -p`) 연결 |
 | `backend/app/claude_agent_llm.py` (새 파일) | Claude Code가 MCP로 도구를 직접 실행하는 모드 |
-| `backend/app/mcp_server.py` (새 파일) | 도구 7개를 MCP로 내보내는 서버 (추가 패키지 없음) |
+| `backend/app/mcp_server.py` (새 파일) | 도구를 MCP로 내보내는 서버 (추가 패키지 없음) |
 | `backend/tests/test_claude_agent.py` (새 파일) | 가짜 CLI가 실제 MCP 서버를 띄워 도구를 호출하는 통합 검증 |
 | `backend/tests/test_claude_cli.py` (새 파일) | 가짜 CLI로 JSON 주고받기 검증 |
 | `backend/app/agent.py` | 모델 생성을 `llm.get_model()`로 교체, 대화 기록 정리(FIXES 4번), 빈 응답 방지(FIXES 3번), 응답에 `provider` 추가 |

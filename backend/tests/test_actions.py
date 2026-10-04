@@ -111,3 +111,10 @@ def test_tool_loop_reply_keeps_text_before_tools():
     reply = _run_loop(FakeModel(), [], trace, [])
     assert reply == "밤에 아이 맡길 곳이 필요하시겠어요.\n\n아래 버튼으로 바로 전화할 수 있어요."
     assert trace[0]["result"]["shown"][0]["phone"] == "1345"
+
+
+def test_claude_cli_tool_specs_keep_nested_defs():
+    from app.claude_cli_llm import _tool_specs
+    spec = json.loads(_tool_specs([suggest_actions]))
+    assert spec["args"]["actions"]["items"]["$ref"] == "#/$defs/Action"
+    assert {"kind", "label", "reason", "phone"} <= set(spec["$defs"]["Action"]["properties"])

@@ -61,7 +61,7 @@ Duo/
 │  ├─ data/
 │  │  ├─ programs.json       경남 지원사업 DB 26건 (공식 페이지·기사로 확인, 출처·확인일 포함)
 │  │  └─ i18n/               AI 번역된 화면 문구 캐시 (en/ja/zh, 원본 해시별)
-│  ├─ eval/                  간접 표현 평가 세트 100개 + 키워드 방식 비교 실행기
+│  ├─ eval/                  간접 표현 평가 세트 100개 + 처음 보는 holdout 999개 + 키워드 방식 비교 실행기
 │  └─ tests/                 도구·mock·번역·CLI 테스트 (정량 목표 증빙용)
 ├─ frontend/                 React (Vite)
 │  └─ src/
@@ -135,7 +135,7 @@ npm run dev                       # http://localhost:5173
 **테스트**
 ```bash
 cd backend
-python -m pytest -q             # Windows: 50 passed, 5 skipped (가짜 CLI 테스트는 macOS/Linux 전용)
+python -m pytest -q             # Windows: 53 passed, 5 skipped (가짜 CLI 테스트는 macOS/Linux 전용)
 ```
 
 ## 에이전트 동작 방식
@@ -167,6 +167,12 @@ python -m eval.run_eval --mode both      # 키워드 vs 에이전트 (.env 의 L
 ```
 
 결과는 `eval/results/` 에 Markdown 표(완료보고서용)와 JSON(사례별 판단·답장 전체)으로 저장된다.
+
+100문항에 맞춰 프롬프트를 고쳤기 때문에, 그 효과가 진짜인지는 처음 보는 사례로 따로 잰다. `eval/cases_holdout.jsonl`(999개)은 에이전트 프롬프트와 기존 사례를 보지 않는 모델이 만들고 블라인드로 다시 채점한 세트다 (`eval/generate_cases.py`). 사용량 한도에 걸리면 채점하지 않고 멈추며, 같은 명령을 다시 실행하면 이어서 한다.
+
+```bash
+python -m eval.run_eval --mode agent --cases cases_holdout.jsonl
+```
 
 ## 팀 작업 TODO
 

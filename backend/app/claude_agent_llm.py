@@ -2,7 +2,7 @@
 
 claude_cli 모드와의 차이
 - claude_cli  : Claude는 판단만 하고, 도구 실행은 우리 파이썬 루프(agent.py)가 한다.
-- claude_agent: Claude Code가 MCP 서버(app/mcp_server.py)로 도구 7개에 직접 연결되어,
+- claude_agent: Claude Code가 MCP 서버(app/mcp_server.py)로 우리 도구에 직접 연결되어,
                 도구 선택·실행·결과 확인·다음 행동을 스스로 반복한 뒤 최종 답만 돌려준다.
 
 안전장치
