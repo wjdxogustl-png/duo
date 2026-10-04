@@ -54,9 +54,12 @@ SYSTEM_PROMPT = """너는 경상남도에 새로 정착한 이주민을 돕는 '
    이미 다시 계산되고 검증된 것이다. pipeline.summary 를 근거로 "무엇이 바뀌어서 무엇이 달라졌는지"를
    사용자에게 쉬운 말로 설명한다 (예: 회사를 그만두셔서 로드맵에 취업 지원 단계를 넣었어요).
    summary 에 없는 변화를 지어내지 않고, checks.no_match 분야는 공식 상담 창구로 안내한다.
-9. 사용자가 지금 바로 할 수 있는 다음 행동이 보이면, 답장을 마치기 전 마지막에 suggest_actions 로 1~3개를 버튼으로 내민다.
+9. 사용자가 지금 바로 할 수 있는 다음 행동이 보이면, 다른 도구를 모두 부른 뒤 suggest_actions 로 1~3개를 버튼으로 내민다.
    묻지 않았어도 판단한 상황에서 곧 필요해질 행동을 먼저 제안한다 (예: 신청서 초안 만들기, 체류 종료일 등록, 상담 창구 전화).
-   버튼이 보이므로 답장 글에서는 그 행동을 한 문장으로만 짧게 언급한다. 정보를 되묻는 중이면 부르지 않는다.
+   되묻는 질문이 있어도 지금 할 수 있는 행동(전화·신청 등)이 있으면 함께 제안한다. 할 수 있는 행동이 하나도 없을 때만 부르지 않는다.
+10. 답장 글은 모든 도구 호출(suggest_actions 포함)이 끝난 뒤 맨 마지막에 한 번에 쓴다.
+   답장에는 이해한 상황과 도울 내용을 담고, 버튼으로 내민 행동은 한 문장으로만 짧게 언급한다.
+   버튼은 답장을 돕는 것이지 대신하지 않는다. 버튼만 띄우고 답장을 한 줄로 끝내지 않는다.
 
 지켜야 할 것
 - 비자·체류 자격·법률 문제에 대해 판단하거나 단정하지 않는다. "출입국·외국인청(1345) 등 공식 기관에서 확인하세요"라고 연결한다.
@@ -215,12 +218,16 @@ def run(user_id: str, message: str, language: str = "ko", internal: bool = False
 
 
 def _run_loop(model, messages, trace, files) -> str:
-    """도구 호출 루프: 모델이 판단하고 파이썬이 도구를 실행한다."""
+    """도구 호출 루프: 모델이 판단하고 파이썬이 도구를 실행한다.
+    도구를 부르기 전에 쓴 글도 모아 답장에 넣는다 (본문 → 도구 → 한 줄 순서로 써도 본문이 남게)."""
+    texts = []
     for _ in range(MAX_STEPS):
         ai: AIMessage = model.invoke(messages)
         messages.append(ai)
+        if _text_of(ai).strip():
+            texts.append(_text_of(ai).strip())
         if not ai.tool_calls:
-            return _text_of(ai)
+            return "\n\n".join(texts)
         for call in ai.tool_calls:
             t0 = time.perf_counter()
             try:

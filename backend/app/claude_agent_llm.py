@@ -155,4 +155,18 @@ def _parse_stream(proc, trace_file: Path) -> tuple[str, list[dict]]:
                     except ValueError:
                         pending[block["tool_use_id"]]["result"] = text
     log.info("claude_agent 도구 호출: %s", [t["tool"] for t in trace])
-    return (result.get("result") or "").strip(), trace
+    return _reply_text(events) or (result.get("result") or "").strip(), trace
+
+
+def _reply_text(events: list[dict]) -> str:
+    """한 턴 동안 모델이 쓴 글을 모두 이어 붙인다(테스트 대상).
+    result 에는 마지막 도구 호출 뒤의 글만 담겨서, 본문을 쓰고 도구(예: suggest_actions)를 부른 뒤
+    한 줄만 덧붙이면 본문이 사라진다."""
+    texts = []
+    for e in events:
+        if e.get("type") != "assistant":
+            continue
+        for block in (e.get("message") or {}).get("content") or []:
+            if isinstance(block, dict) and block.get("type") == "text" and block.get("text", "").strip():
+                texts.append(block["text"].strip())
+    return "\n\n".join(texts)

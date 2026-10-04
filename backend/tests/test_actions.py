@@ -75,3 +75,39 @@ def test_actions_of_uses_last_call():
     ]
     assert actions_of(trace) == [{"label": "new"}]
     assert actions_of([{"tool": "save_profile", "result": {}}]) == []
+
+
+# --- 본문 → 카드 → 한 줄 순서로 써도 본문이 답장에 남는지 ---
+
+def test_claude_agent_reply_keeps_text_before_tools():
+    from app.claude_agent_llm import _reply_text
+    events = [
+        {"type": "assistant", "message": {"content": [{"type": "text", "text": "밤에 아이 맡길 곳이 필요하시겠어요."},
+                                                      {"type": "tool_use", "name": "mcp__settle__suggest_actions"}]}},
+        {"type": "user", "message": {"content": [{"type": "tool_result", "content": "{}"}]}},
+        {"type": "assistant", "message": {"content": [{"type": "text", "text": "아래 버튼으로 바로 전화할 수 있어요."}]}},
+        {"type": "result", "result": "아래 버튼으로 바로 전화할 수 있어요."},
+    ]
+    assert _reply_text(events) == "밤에 아이 맡길 곳이 필요하시겠어요.\n\n아래 버튼으로 바로 전화할 수 있어요."
+
+
+def test_tool_loop_reply_keeps_text_before_tools():
+    from langchain_core.messages import AIMessage
+    from app.agent import _run_loop
+
+    class FakeModel:
+        def __init__(self):
+            self.replies = [
+                AIMessage("밤에 아이 맡길 곳이 필요하시겠어요.",
+                          tool_calls=[{"name": "suggest_actions", "id": "t1",
+                                       "args": {"actions": [card("call", phone="1345")]}}]),
+                AIMessage("아래 버튼으로 바로 전화할 수 있어요."),
+            ]
+
+        def invoke(self, messages):
+            return self.replies.pop(0)
+
+    trace = []
+    reply = _run_loop(FakeModel(), [], trace, [])
+    assert reply == "밤에 아이 맡길 곳이 필요하시겠어요.\n\n아래 버튼으로 바로 전화할 수 있어요."
+    assert trace[0]["result"]["shown"][0]["phone"] == "1345"
