@@ -273,12 +273,23 @@ export default function App() {
                   </div>
                   {turn.trace.length === 0 && <div className="muted small">{t.noToolCall}</div>}
                   {turn.trace.map((c, j) => (
-                    <details key={j} className="call">
-                      <summary>
-                        {t.tools?.[c.tool] ?? c.tool} <code>{c.tool}</code> · {c.ms}ms
-                      </summary>
-                      <pre>{JSON.stringify({ args: c.args, result: c.result }, null, 2)}</pre>
-                    </details>
+                    <div key={j}>
+                      <details className="call">
+                        <summary>
+                          {t.tools?.[c.tool] ?? c.tool} <code>{c.tool}</code> · {c.ms}ms
+                        </summary>
+                        <pre>{JSON.stringify({ args: c.args, result: c.result }, null, 2)}</pre>
+                      </details>
+                      {c.result?.pipeline?.steps && (
+                        <ol className="pipeline">
+                          {c.result.pipeline.steps.map((s, k) => (
+                            <li key={k}>
+                              {t.pipeline?.[s.stage] ?? s.stage} <span className="muted">{s.detail}</span>
+                            </li>
+                          ))}
+                        </ol>
+                      )}
+                    </div>
                   ))}
                 </div>
               ))

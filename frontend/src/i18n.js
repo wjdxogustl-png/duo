@@ -47,6 +47,15 @@ export const KO = {
     generate_application_doc: "신청서 초안 만들기",
     note_situation: "상황 기억하기",
   },
+  // 저장 뒤 자동으로 도는 변경 파이프라인 단계 (backend/app/pipeline.py 기준)
+  pipeline: {
+    detect: "변경 감지",
+    impact: "영향 분석",
+    risk: "정착 안정도 재평가",
+    roadmap: "로드맵 갱신",
+    programs: "지원사업 재검색",
+    verify: "결과 검증",
+  },
   // 단계 id 는 backend/app/tools/roadmap.py 의 RULES 기준
   steps: {
     registration_check: "외국인등록·체류지 신고 여부 확인 (출입국·외국인청 공식 안내 확인)",
@@ -127,6 +136,14 @@ export const TRANSLATIONS = {
       generate_application_doc: "Draft application",
       note_situation: "Remember situation",
     },
+    pipeline: {
+      detect: "Detect changes",
+      impact: "Analyze impact",
+      risk: "Re-check stability",
+      roadmap: "Update roadmap",
+      programs: "Re-search programs",
+      verify: "Verify results",
+    },
     steps: {
       registration_check: "Check alien registration and address report (see official Immigration Office guidance)",
       bank_phone: "Open a bank account and mobile phone",
@@ -202,6 +219,14 @@ export const TRANSLATIONS = {
       set_dday_reminder: "Đặt ngày hết hạn cư trú (D-day)",
       generate_application_doc: "Soạn đơn đăng ký",
       note_situation: "Ghi nhớ tình huống",
+    },
+    pipeline: {
+      detect: "Phát hiện thay đổi",
+      impact: "Phân tích ảnh hưởng",
+      risk: "Đánh giá lại mức ổn định",
+      roadmap: "Cập nhật lộ trình",
+      programs: "Tìm lại chương trình hỗ trợ",
+      verify: "Kiểm tra kết quả",
     },
     steps: {
       registration_check: "Kiểm tra đăng ký người nước ngoài và khai báo nơi cư trú (xem hướng dẫn chính thức của Cục Xuất nhập cảnh)",
@@ -279,6 +304,14 @@ export const TRANSLATIONS = {
       generate_application_doc: "申請書の下書き作成",
       note_situation: "状況を記憶",
     },
+    pipeline: {
+      detect: "変更を検知",
+      impact: "影響を分析",
+      risk: "安定度を再評価",
+      roadmap: "ロードマップを更新",
+      programs: "支援事業を再検索",
+      verify: "結果を検証",
+    },
     steps: {
       registration_check: "外国人登録・居所申告の確認(出入国・外国人庁の公式案内を確認)",
       bank_phone: "銀行口座・携帯電話の開通",
@@ -354,6 +387,14 @@ export const TRANSLATIONS = {
       set_dday_reminder: "设置居留到期日 D-day",
       generate_application_doc: "生成申请表草稿",
       note_situation: "记住情况",
+    },
+    pipeline: {
+      detect: "检测变化",
+      impact: "分析影响",
+      risk: "重新评估稳定度",
+      roadmap: "更新路线图",
+      programs: "重新查找支援项目",
+      verify: "核验结果",
     },
     steps: {
       registration_check: "确认是否已办理外国人登记·居住地申报(查看出入境·外国人厅官方说明)",

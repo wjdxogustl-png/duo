@@ -13,6 +13,7 @@ RULES = [
         "category": "행정",
         "priority": 10,
         "when": lambda p: p.get("months_in_korea", 99) <= 3,
+        "uses": ["months_in_korea"],
     },
     {
         "id": "bank_phone",
@@ -20,6 +21,7 @@ RULES = [
         "category": "생활",
         "priority": 20,
         "when": lambda p: p.get("months_in_korea", 99) <= 3,
+        "uses": ["months_in_korea"],
     },
     {
         "id": "health_insurance",
@@ -27,6 +29,7 @@ RULES = [
         "category": "생활",
         "priority": 30,
         "when": lambda p: p.get("months_in_korea", 99) <= 6,
+        "uses": ["months_in_korea"],
     },
     {
         "id": "community",
@@ -34,6 +37,7 @@ RULES = [
         "category": "멘토링",
         "priority": 35,
         "when": lambda p: p.get("has_local_support") is False,
+        "uses": ["has_local_support"],
     },
     {
         "id": "korean_class",
@@ -41,6 +45,7 @@ RULES = [
         "category": "한국어교육",
         "priority": 40,
         "when": lambda p: p.get("korean_level", 3) <= 1,
+        "uses": ["korean_level"],
     },
     {
         "id": "children_school",
@@ -48,6 +53,7 @@ RULES = [
         "category": "자녀교육",
         "priority": 50,
         "when": lambda p: p.get("has_children") is True,
+        "uses": ["has_children"],
     },
     {
         "id": "workplace_counsel",
@@ -55,6 +61,7 @@ RULES = [
         "category": "노동상담",
         "priority": 60,
         "when": lambda p: p.get("workplace_issue") is True,
+        "uses": ["workplace_issue"],
     },
     {
         "id": "job_support",
@@ -62,6 +69,7 @@ RULES = [
         "category": "취업",
         "priority": 70,
         "when": lambda p: p.get("job_status") == "seeking",
+        "uses": ["job_status"],
     },
     {
         "id": "law_counsel",
@@ -69,8 +77,12 @@ RULES = [
         "category": "법률상담",
         "priority": 90,
         "when": lambda p: True,
+        "uses": [],
     },
 ]
+
+# 로드맵 결과에 영향을 주는 프로필 항목 (변경 파이프라인의 영향 분석에 쓴다)
+ROADMAP_KEYS = {k for r in RULES for k in r["uses"]}
 
 
 def generate_steps(profile: dict) -> list[dict]:

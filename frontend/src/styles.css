@@ -142,6 +142,8 @@ select { padding: 8px 10px; border-radius: 10px; border: 1px solid var(--line); 
 .call summary { cursor: pointer; font-size: 13px; }
 .call code { color: var(--accent-text); font-weight: 600; }
 .call pre { font-size: 11.5px; background: var(--bg); border: 1px solid var(--line); padding: 8px; border-radius: 8px; overflow-x: auto; max-height: 240px; }
+.pipeline { margin: 2px 0 6px; padding-left: 26px; font-size: 12px; border-left: 2px solid var(--line); }
+.pipeline li { margin: 1px 0; overflow-wrap: anywhere; }
 .muted { color: var(--muted); }
 .small { font-size: 12px; }
 

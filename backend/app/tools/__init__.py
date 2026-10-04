@@ -17,12 +17,35 @@ def _json(obj) -> str:
     return json.dumps(obj, ensure_ascii=False)
 
 
+def _with_pipeline(save):
+    """기억을 바꾸는 도구 뒤에 변경 파이프라인(app/pipeline.py)을 붙인다. 결과의 pipeline 에 보고가 담긴다."""
+    def run(**kw):
+        from .. import memory, pipeline  # 순환 import 방지
+        before = memory.load()
+        result = save(kw)
+        report = pipeline.after_change(before)
+        if report:
+            result["pipeline"] = report
+        return _json(result)
+    return run
+
+
+PIPELINE_NOTE = (
+    " 저장으로 바뀐 것이 있으면 결과의 pipeline 에 코드가 이미 다시 계산·검증한 내용"
+    "(정착 안정도, 로드맵 추가·제외 단계, 검증된 지원사업)이 담긴다. "
+    "같은 목적으로 score_risk · build_roadmap · search_programs 를 다시 부르지 말고, "
+    "pipeline.summary 를 근거로 무엇이 왜 바뀌었는지 사용자에게 짧게 설명한다. "
+    "verified 에 없는 사업은 안내하지 않는다."
+)
+
+
 save_profile = StructuredTool.from_function(
-    func=lambda **kw: _json(_save_profile(kw)),
+    func=_with_pipeline(_save_profile),
     name="save_profile",
     description=(
         "대화에서 알아낸 사용자 정보를 프로필에 저장한다. 새 정보를 알게 될 때마다 호출한다. "
         "결과의 missing_required 가 비어 있지 않으면 그 항목을 사용자에게 자연스럽게 되묻는다."
+        + PIPELINE_NOTE
     ),
     args_schema=ProfileUpdate,
 )
@@ -76,7 +99,7 @@ def generate_application_doc(name: str, phone: str, institution: str, preferred_
 
 
 note_situation = StructuredTool.from_function(
-    func=lambda **kw: _json(_note_situation(kw)),
+    func=_with_pipeline(_note_situation),
     name="note_situation",
     description=(
         "대화에서 추론한 사용자의 상황과 숨은 필요를 근거와 함께 기억한다. "
@@ -88,6 +111,7 @@ note_situation = StructuredTool.from_function(
         "사용자가 부정했거나 이미 해결됐다고 말한 필요는 기록하지 않는다. "
         "이미 기억한 상황이 바뀌었거나 해결됐으면 그 id 로 갱신한다. "
         "프로필 항목(지역·자녀 유무 등)은 save_profile 로, 그 밖의 상황은 이 도구로 저장한다."
+        + PIPELINE_NOTE
     ),
     args_schema=SituationNote,
 )
