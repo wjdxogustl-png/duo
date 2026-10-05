@@ -4,6 +4,7 @@ AgentExecutor 대신 bind_tools 로 루프를 직접 돌린다. 버전 변화에
 매 도구 호출을 trace 로 남겨 화면의 '도구 로그 패널'과 시연영상에 그대로 보여 줄 수 있다.
 """
 import json
+import re
 import time
 from datetime import date, datetime, timedelta
 
@@ -16,6 +17,8 @@ from .tools.dday import compute_dday
 
 MAX_STEPS = 8
 BRIEFING_INTERVAL = timedelta(hours=6)  # 마지막 브리핑 후 이 시간 안에는 다시 브리핑하지 않는다
+# 전화 카드를 누르면 화면이 보내는 문장(i18n callFollowup) 끝에 고른 번호가 붙는다: "(번호: 1350)" 등 5개 언어
+CHOSEN_CALL = re.compile(r"[(（](?:번호|Number|Số|番号|号码)\s*[:：]\s*([\d-]+)\s*[)）]\s*$")
 LANG_NAMES = {"ko": "한국어", "en": "English", "vi": "Tiếng Việt", "ja": "日本語", "zh": "简体中文"}
 
 SYSTEM_PROMPT = """너는 경상남도에 새로 정착한 이주민을 돕는 '정착 도우미' 에이전트다.
@@ -71,12 +74,15 @@ SYSTEM_PROMPT = """너는 경상남도에 새로 정착한 이주민을 돕는 '
    연락 전에 준비할 것(증거·서류·메모), 통화할 때 할 말(그대로 읽을 수 있는 짧은 한국어 문장과 통역 요청 방법),
    운영 시간·방문 등 다른 연락 방법, 연락한 뒤 이어질 다음 단계. 같은 전화 카드를 다시 내밀지 말고,
    그다음에 할 수 있는 행동(증거 정리, 신청서 초안, 다른 창구 등)을 suggest_actions 로 제안한다.
+   카드를 고른 메시지는 끝에 "(번호: 1350)"처럼 고른 번호가 붙어 온다. 이번 턴의 suggest_actions 에는
+   그 번호의 call 카드를 절대 넣지 않는다 (이미 화면에 번호가 있다). say 카드의 message 는 빈칸(___) 없이 그대로 보낼 수 있는 문장으로 쓴다.
 
 지켜야 할 것
 - 비자·체류 자격·법률 문제에 대해 판단하거나 단정하지 않는다. "출입국·외국인청(1345) 등 공식 기관에서 확인하세요"라고 연결한다.
 - 지원사업 정보에는 출처(source_url)가 있으면 함께 알려 준다.
 - 짧고 쉬운 문장으로 답한다. 한국어가 서툰 사용자를 기준으로 쓴다.
 - 질문은 한 번에 최대 2개만 한다.
+- 도구 이름(suggest_actions 등)이나 "먼저 호출합니다" 같은 작업 과정은 답장에 쓰지 않는다. 사용자에게 하는 말만 쓴다.
 - 저장·생성·검색했다고 말하려면 반드시 그 도구를 실제로 호출한다. 도구를 부르지 않고 했다고 말하지 않는다.
 - 채팅창은 마크다운을 표시하지 못한다. 굵게(**), 제목(#), 표를 쓰지 말고 짧은 문단과 줄바꿈으로 쓴다. 목록이 필요하면 "1." 같은 번호만 쓴다.
 - DB에 맞는 지원사업이 없으면 지어내지 말고, 아래 공식 상담 창구 중 알맞은 곳을 안내한다. 이 목록에 없는 번호는 안내하지 않는다.
@@ -175,11 +181,21 @@ def draft_of(trace: list[dict]) -> dict | None:
     return None
 
 
+def chosen_call(message: str) -> str | None:
+    m = CHOSEN_CALL.search(message.strip())
+    return m.group(1) if m else None
+
+
 def run(user_id: str, message: str, language: str = "ko", internal: bool = False) -> dict:
     """한 턴 실행. internal=True 면 사용자 메시지를 대화 기록에 남기지 않는다(능동 브리핑용)."""
     memory.current_user.set(user_id)
     started = time.perf_counter()
     state = memory.load()
+    # 고른 전화 카드 번호를 적어 두면 suggest_actions 가 같은 카드를 다시 내밀지 않는다 (MCP 서버도 이 상태를 읽는다)
+    chosen = chosen_call(message) if not internal else None
+    if state.get("chosen_call") != chosen:
+        state["chosen_call"] = chosen
+        memory.save(state)
 
     lang = state["profile"].get("language") or language
     messages = [SystemMessage(SYSTEM_PROMPT.format(

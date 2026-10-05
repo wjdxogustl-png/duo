@@ -25,6 +25,7 @@ def test_every_hotline_has_source_and_date():
 @pytest.fixture
 def no_programs(monkeypatch):
     monkeypatch.setattr(actions, "load_programs", lambda: [])
+    monkeypatch.setattr(actions, "_chosen_call", lambda: "")
 
 
 @pytest.mark.parametrize("phone", ["112", "119", "1366", "1577-1366", "15771366", "1345", "1350", "1644-0644", "129"])

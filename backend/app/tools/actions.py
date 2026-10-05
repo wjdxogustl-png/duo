@@ -11,6 +11,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
+from .. import memory
 from .hotlines import load_hotlines
 from .programs import load_programs
 
@@ -43,7 +44,12 @@ def _known_phones() -> set[str]:
     return phones
 
 
-def _check(a: dict, phones: set[str], urls: set[str]) -> str | None:
+def _chosen_call() -> str:
+    """이번 턴에 사용자가 고른 전화 카드 번호(agent.run 이 상태에 적어 둔다). 없으면 빈 문자열."""
+    return _digits(memory.load().get("chosen_call"))
+
+
+def _check(a: dict, phones: set[str], urls: set[str], chosen: str = "") -> str | None:
     """카드가 쓸 수 없으면 이유를, 쓸 수 있으면 None 을 돌려준다(순수 함수)."""
     if not (a.get("label") or "").strip():
         return "label 없음"
@@ -51,6 +57,8 @@ def _check(a: dict, phones: set[str], urls: set[str]) -> str | None:
         return "say 인데 message 없음"
     if a["kind"] == "call" and _digits(a.get("phone")) not in phones:
         return "공식 창구·DB 에 없는 번호"
+    if a["kind"] == "call" and chosen and _digits(a.get("phone")) == chosen:
+        return "방금 고른 창구 (번호는 이미 화면에 있음)"
     if a["kind"] == "link" and (a.get("url") or "") not in urls:
         return "DB 에 없는 주소"
     return None
@@ -59,9 +67,10 @@ def _check(a: dict, phones: set[str], urls: set[str]) -> str | None:
 def suggest_actions(actions: list[dict]) -> dict:
     phones = _known_phones()
     urls = {p["source_url"] for p in load_programs() if p.get("source_url")}
+    chosen = _chosen_call()
     shown, dropped = [], []
     for a in actions:
-        reason = _check(a, phones, urls)
+        reason = _check(a, phones, urls, chosen)
         if reason:
             dropped.append({"label": a.get("label"), "why": reason})
         elif len(shown) >= MAX_ACTIONS:

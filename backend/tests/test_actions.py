@@ -16,6 +16,7 @@ PROGRAMS = [
 @pytest.fixture(autouse=True)
 def fake_db(monkeypatch):
     monkeypatch.setattr(actions, "load_programs", lambda: PROGRAMS)
+    monkeypatch.setattr(actions, "_chosen_call", lambda: "")  # 실제 사용자 상태 파일을 읽지 않게
 
 
 def card(kind, **kw):
@@ -118,3 +119,31 @@ def test_claude_cli_tool_specs_keep_nested_defs():
     spec = json.loads(_tool_specs([suggest_actions]))
     assert spec["args"]["actions"]["items"]["$ref"] == "#/$defs/Action"
     assert {"kind", "label", "reason", "phone"} <= set(spec["$defs"]["Action"]["properties"])
+
+
+# --- 고른 전화 카드를 다음 턴에 다시 내밀지 않는지 ---
+
+@pytest.mark.parametrize("message", [
+    "'고용노동부 1350 전화'을(를) 골랐어요. 연락하기 전에 준비할 것과 무엇을 말하면 되는지, 그다음 해결 단계를 알려 주세요. (번호: 1350)",
+    "I chose 'Call 1350'. Before I contact them, tell me what to prepare, what to say, and what the next step is. (Number: 1350)",
+    "Tôi đã chọn 'Gọi 1350'. Trước khi liên hệ, hãy cho tôi biết cần chuẩn bị gì, nên nói gì và bước tiếp theo là gì. (Số: 1350)",
+    "「1350に電話」を選びました。連絡する前に準備すること、何を話せばよいか、次の解決ステップを教えてください。（番号: 1350）",
+    "我选择了“拨打1350”。联系之前，请告诉我需要准备什么、该怎么说，以及下一步怎么做。（号码：1350）",
+])
+def test_chosen_call_parsed_in_five_languages(message):
+    from app.agent import chosen_call
+    assert chosen_call(message) == "1350"
+
+
+def test_chosen_call_ignores_ordinary_messages():
+    from app.agent import chosen_call
+    assert chosen_call("1350 번호가 뭐예요?") is None
+    assert chosen_call("사장님이 석 달째 월급을 안 줘요") is None
+
+
+def test_chosen_number_dropped_but_other_cards_kept(monkeypatch):
+    monkeypatch.setattr(actions, "_chosen_call", lambda: "15771366")
+    r = actions.suggest_actions([card("call", phone="1577-1366"), card("call", phone="1345"),
+                                 card("say", message="증거 정리 도와주세요")])
+    assert [a.get("phone") for a in r["shown"]] == ["1345", None]
+    assert r["dropped"][0]["why"].startswith("방금 고른 창구")
