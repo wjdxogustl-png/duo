@@ -199,12 +199,12 @@ export default function App() {
         <section className="chat">
           <div className="messages">
             {messages.map((m, i) => (
-              <div key={i} className={`msg ${m.role} ${m.kind || ""}`}>
+              <div key={i} className={`msg ${m.role}${m.kind ? ` kind-${m.kind}` : ""}`}>
                 <div className="bubble">{m.kind === "welcome" ? t.welcome : m.content}</div>
                 {m.draft && <DraftCard key={m.draft.id} draft={m.draft} userId={userId} t={t} />}
                 {/* 지난 답장의 카드는 이미 지나간 제안이므로 마지막 답장에만 보인다 */}
                 {i === messages.length - 1 && m.actions?.length > 0 && (
-                  <ActionCards actions={m.actions} title={t.nextActions} disabled={busy} onSay={say} />
+                  <ActionCards actions={m.actions} title={t.nextActions} callText={t.callFollowup} disabled={busy} onSay={say} />
                 )}
               </div>
             ))}
@@ -313,8 +313,10 @@ export default function App() {
   );
 }
 
-// 에이전트가 판단한 다음 행동 카드. say 는 누르면 그 문장을 보내고, call·link 는 전화·출처로 바로 연결한다
-function ActionCards({ actions, title, disabled, onSay }) {
+// 에이전트가 판단한 다음 행동 카드.
+// say 는 그 문장을 보내고, call 은 바로 전화를 걸지 않고 번호를 보여 준 뒤 "연락 전 준비·할 말·다음 단계"를 에이전트에게 묻는다.
+// link 는 지원사업 출처 페이지를 새 탭으로 연다.
+function ActionCards({ actions, title, callText, disabled, onSay }) {
   return (
     <div className="actions" role="group" aria-label={title}>
       <div className="actions-title">{title}</div>
@@ -325,13 +327,16 @@ function ActionCards({ actions, title, disabled, onSay }) {
               {a.kind === "call" ? "☎ " : a.kind === "link" ? "↗ " : ""}
               {a.label}
             </span>
+            {a.kind === "call" && a.phone && <span className="action-phone">{a.phone}</span>}
             <span className="action-reason">{a.reason}</span>
           </>
         );
-        if (a.kind === "call") return <a key={i} className="action" href={`tel:${a.phone}`}>{body}</a>;
         if (a.kind === "link") return <a key={i} className="action" href={a.url} target="_blank" rel="noreferrer">{body}</a>;
+        const text = a.kind === "call"
+          ? (callText || "").replace("{label}", a.label).replace("{phone}", a.phone || "")
+          : a.message;
         return (
-          <button key={i} type="button" className="action" disabled={disabled} onClick={() => onSay(a.message)}>
+          <button key={i} type="button" className="action" disabled={disabled} onClick={() => onSay(text)}>
             {body}
           </button>
         );
