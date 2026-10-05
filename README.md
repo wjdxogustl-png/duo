@@ -209,7 +209,6 @@ python -m eval.run_eval --mode agent --cases cases_holdout.jsonl
 - [x] Windows 에서 claude CLI 시스템 프롬프트가 첫 줄만 전달되던 문제 수정 (`--system-prompt-file`)
 - [ ] (FIXES 4번) `claude_agent` 모드로 "대화 → 새로고침(브리핑) → 다시 대화" 오류 없는지 확인
 - [ ] (FIXES 9번) `claude_agent` 모드로 시연 시나리오 3회 실행해 `elapsed_ms` 표 정리 (참고: 로드맵 생성 한 턴 20.3초, 도구 9회. 10초를 넘으면 원인과 개선 방향을 보고서에 기재)
-- [ ] (FIXES 9번 검토, 팀 결정 필요) `build_roadmap`이 단계별 지원사업을 함께 붙여 반환하도록 할지
 - [ ] 시연 시나리오 1~6단계를 베트남어로 끝까지 한 번 성공 (`claude_agent` 모드)
 
 ## 출처 및 AI 활용 (출처·AI 활용 신고서 작성용 메모)
