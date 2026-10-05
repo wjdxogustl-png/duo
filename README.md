@@ -19,7 +19,9 @@
 4. 경남 지원사업 연결 — 로드맵 단계마다 시·군 지원사업을 출처와 함께 찾아 줍니다
 5. 신청서 초안 작성 — 신청하고 싶은 지원사업의 신청서를 에이전트가 아는 정보로 미리 채워 두고, 화면에서 직접 고친 뒤 Word로 내려받거나 복사해 본인이 제출합니다
 6. 능동 케어 — 다시 방문하면 체류 종료 D-day와 남은 단계를 에이전트가 먼저 안내합니다
-7. 액션 카드 — 에이전트가 판단한 다음 행동(신청서 만들기, 상담 창구 전화, 지원사업 출처 열기)을 답장 아래 버튼으로 먼저 내밉니다
+7. 액션 카드 — 에이전트가 판단한 다음 행동(신청서 만들기, 상담 창구 연락, 지원사업 출처 열기)을 답장 아래 버튼으로 먼저 내밉니다. 상담 창구 카드는 번호를 보여 주고, 누르면 연락 전 준비할 것·통화할 때 할 말·다음 단계를 안내합니다
+8. 위기 상황 우선 연결 — 폭력·임금체불·생명 위험처럼 급한 상황이면 지원사업보다 공식 상담 창구(112·119·1366·1350 등)를 먼저 내밉니다
+9. 개인정보 배려 — 고유식별정보는 신청서 초안에서 자동 삭제하고, 입력창 아래에 저장 위치·삭제 방법을 안내합니다
 
 화면 오른쪽 **에이전트 작업 기록**에서 에이전트가 어떤 도구를 왜 호출했는지 그대로 볼 수 있습니다.
 
@@ -39,7 +41,7 @@
 Duo/
 ├─ backend/                  Python · FastAPI · LangChain · Claude
 │  ├─ app/
-│  │  ├─ main.py             API (/api/chat, /api/briefing, /api/i18n, /api/files ...)
+│  │  ├─ main.py             API (/api/chat, /api/briefing, /api/i18n, /api/files, /api/hotlines ...)
 │  │  ├─ agent.py            도구 호출 루프 + 시스템 프롬프트 + 능동 브리핑(6시간 제한)
 │  │  ├─ llm.py              LLM 제공자 선택 (.env 의 LLM_PROVIDER)
 │  │  ├─ mock_llm.py         키 없이 개발할 때 쓰는 규칙 기반 가짜 에이전트 (ko/en/vi)
@@ -57,9 +59,11 @@ Duo/
 │  │     ├─ dday.py          set_dday_reminder     체류 종료일 D-day
 │  │     ├─ draft.py         draft_application     신청서 초안 (화면에서 고침, 고유식별정보 차단, docx)
 │  │     ├─ situation.py     note_situation        맥락으로 판단한 숨은 필요 기억
-│  │     └─ actions.py       suggest_actions       다음 행동 카드 (번호·주소는 DB·공식 창구만 허용)
+│  │     ├─ actions.py       suggest_actions       다음 행동 카드 (번호·주소는 DB·공식 창구만 허용, 방금 고른 창구는 다시 내밀지 않음)
+│  │     └─ hotlines.py      공식 상담 창구 목록 읽기 (카드 검증·시스템 프롬프트가 함께 사용)
 │  ├─ data/
 │  │  ├─ programs.json       경남 지원사업 DB 26건 (공식 페이지·기사로 확인, 출처·확인일 포함)
+│  │  ├─ hotlines.json       공식 상담 창구 8곳 (번호·지원 언어·운영 시간·연결할 상황·출처·확인일)
 │  │  └─ i18n/               AI 번역된 화면 문구 캐시 (en/ja/zh, 원본 해시별)
 │  ├─ eval/                  간접 표현 평가 세트 100개 + 처음 보는 holdout 999개 + 키워드 방식 비교 실행기
 │  └─ tests/                 도구·mock·번역·CLI 테스트 (정량 목표 증빙용)
@@ -94,10 +98,14 @@ Duo/
 - [x] 규칙 기반 도구 자동 테스트
 - [x] 액션 카드 (에이전트가 다음 행동을 버튼으로 제안)
 - [x] 지원사업 DB 26건 (창원·김해·양산·진주·거제·경남 전체)
+- [x] 위기 상황 상담 창구 8곳 (`data/hotlines.json`), 급한 상황엔 창구 카드를 지원사업보다 먼저
+- [x] 상담 창구 카드: 번호 표시, 누르면 준비물·할 말·다음 단계 안내 (같은 카드는 다시 내밀지 않음)
+- [x] 개인정보 안내 문구 (5개 언어)
 
 **진행 중**
 - [ ] 지원사업 DB 전화 확인 (번호가 출처마다 다른 2건은 `note` 참고), 통영·사천·밀양 등 나머지 시·군 추가
 - [ ] 영어·베트남어 번역 대조
+- [ ] 상담 창구 전화 확인 (1644-0644 이름·운영 시간, 1350 운영 시간·외국어 ARS)
 - [ ] 베트남어 시연 시나리오 전체 확인, 응답 시간 측정 (목표 10초 이내)
 
 ## 실행 방법
@@ -110,8 +118,10 @@ python -m venv .venv
 set PYTHONUTF8=1                # Windows: requirements.txt 의 한글 주석 때문에 필요 (macOS/Linux 는 생략)
 pip install -r requirements.txt
 copy .env.example .env          # LLM_PROVIDER 와 키 설정 (아래 표)
-uvicorn app.main:app --reload --port 8000
+uvicorn app.main:app --port 8000
 ```
+
+Windows 에서 `--reload` 를 쓰면 코드 변경 후 재시작이 멈춰 예전 코드로 계속 도는 일이 있었습니다. 백엔드 코드를 고친 뒤에는 서버를 직접 다시 켜세요.
 
 `.env` 의 `LLM_PROVIDER` 로 LLM을 고릅니다. 자세한 내용은 [FREE_MODE.md](docs/FREE_MODE.md).
 
@@ -134,7 +144,7 @@ npm run dev                       # http://localhost:5173
 **테스트**
 ```bash
 cd backend
-python -m pytest -q             # Windows: 61 passed, 5 skipped (가짜 CLI 테스트는 macOS/Linux 전용)
+python -m pytest -q             # Windows: 84 passed, 5 skipped (가짜 CLI 테스트는 macOS/Linux 전용)
 ```
 
 ## 에이전트 동작 방식
@@ -197,7 +207,7 @@ python -m eval.run_eval --mode agent --cases cases_holdout.jsonl
 | 프레임워크 | LangChain (langchain-core, langchain-anthropic), FastAPI, React, Vite, python-docx, MCP(claude_agent 개발 모드) |
 | AI 코딩 도구 | 프로젝트 뼈대 생성, 기능 추가·버그 수정(LLM 제공자 선택, 화면 디자인, 라이트/다크 모드, 자동 번역 등)에 Claude Code 사용 |
 | AI 생성 콘텐츠 | 화면 문구 영어·일본어·중국어 번역을 Claude로 자동 생성 (`backend/data/i18n/`). 간접 표현 평가 세트 100문장 초안을 Claude Code로 작성 (`backend/eval/cases.jsonl`, 팀 검토 필요) |
-| 데이터 | 지원사업: 팀이 경남 시·군 홈페이지에서 직접 조사 (각 항목 source_url 참조) |
+| 데이터 | 지원사업: 팀이 경남 시·군 홈페이지에서 직접 조사 (각 항목 source_url 참조). 상담 창구: 기관 공식 페이지에서 확인 (`data/hotlines.json` 의 source_url·checked_at) |
 | 지도 | 대한민국 시·도 경계: [southkorea/southkorea-maps](https://github.com/southkorea/southkorea-maps) (KOSTAT 2013 행정구역, 단순화). 독도 위치는 좌표로 직접 표시 |
 | 태극기 | 「대한민국국기법」 시행령의 비율에 따라 SVG로 직접 작도 |
 
