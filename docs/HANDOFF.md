@@ -20,7 +20,7 @@
 - 도구 7개: save_profile, build_roadmap, update_roadmap_step, search_programs, score_risk, set_dday_reminder, generate_application_doc
 - 재방문 시 에이전트가 D-day와 남은 단계를 먼저 안내 ("능동 케어")
 - 화면에 도구 호출 로그 패널을 두어 시연영상에서 에이전트 판단 과정을 보여줌
-- 스택: Python FastAPI + langchain-anthropic (모델 claude-sonnet-5-5), React(Vite), JSON 파일 DB, python-docx
+- 스택: Python FastAPI + LangChain, Claude (개발·시연·평가는 Claude Code + MCP `claude_agent` 모드), React(Vite), JSON 파일 DB, python-docx
 - 언어: 대화는 사용자가 쓴 언어로 답함(베트남어 포함). 화면 문구는 한국어 원본 + AI 자동 번역(English / 日本語 / 中文)
 - 안전장치: 비자·법률 판단 금지, 공식 기관(출입국·외국인청 1345 등) 연결
 
@@ -45,7 +45,7 @@
 - 백엔드·프론트 동작 확인. 테스트 25개 통과 (Windows, 가짜 CLI 테스트 3개는 macOS/Linux 전용)
 - LLM 제공자 선택: `.env` 의 `LLM_PROVIDER` (mock / claude_agent / claude_cli / gemini / ollama / anthropic). 자세한 내용은 FREE_MODE.md
 - `claude_agent` 모드로 베트남어 E2E 확인: save_profile → score_risk(10/50) → build_roadmap → search_programs 6회, 한 턴 20.3초
-- `anthropic` 모드(시연·정량 측정용)는 API 키가 없어 아직 미검증
+- 개발·시연·평가 LLM 은 Claude(`claude_agent` 모드)로 확정. `anthropic` 모드(API 키)는 공개 서비스로 운영할 때 전환할 방식
 - 화면: 태극기·경남 지도, 라이트/다크 모드, 화면 문구 AI 자동 번역(en/ja/zh, `backend/data/i18n/` 에 캐시)
 - data/programs.json 은 예시 2건뿐 → 실제 조사 20건 이상으로 교체해야 함
 - 신청서 템플릿(data/templates/*.docx) 없음 → 코드가 기본 양식 자동 생성 중

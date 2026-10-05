@@ -45,8 +45,8 @@ Duo/
 │  │  ├─ agent.py            도구 호출 루프 + 시스템 프롬프트 + 능동 브리핑(6시간 제한)
 │  │  ├─ llm.py              LLM 제공자 선택 (.env 의 LLM_PROVIDER)
 │  │  ├─ mock_llm.py         키 없이 개발할 때 쓰는 규칙 기반 가짜 에이전트 (ko/en/vi)
-│  │  ├─ claude_cli_llm.py   Claude Code CLI 로 판단만 받는 모드 (개발용)
-│  │  ├─ claude_agent_llm.py Claude Code 가 MCP 로 도구를 직접 실행하는 모드 (개발용)
+│  │  ├─ claude_cli_llm.py   Claude Code CLI 로 판단만 받는 모드 (참고용)
+│  │  ├─ claude_agent_llm.py Claude Code 가 MCP 로 도구를 직접 실행하는 모드 (개발·시연·평가)
 │  │  ├─ mcp_server.py       claude_agent 모드용 MCP 서버 (도구 9개 노출)
 │  │  ├─ translate.py        화면 문구 AI 자동 번역 + 캐시
 │  │  ├─ memory.py           사용자별 상태(프로필·로드맵·D-day·대화) JSON 저장
@@ -82,7 +82,7 @@ Duo/
 | 구분 | 기술 |
 |---|---|
 | 백엔드 | Python, FastAPI, Uvicorn, Pydantic |
-| AI 에이전트 | LangChain (도구 호출), Anthropic Claude, Claude Code + MCP |
+| AI 에이전트 | Anthropic Claude (Claude Code + MCP, `claude_agent` 모드), LangChain (도구 호출) |
 | 데이터 | JSON 파일 DB (사용자 상태, 지원사업) |
 | 문서 생성 | python-docx |
 | 프론트엔드 | React 18, Vite 5 |
@@ -127,9 +127,10 @@ Windows 에서 `--reload` 를 쓰면 코드 변경 후 재시작이 멈춰 예�
 
 | 모드 | 용도 |
 |---|---|
-| `anthropic` | **시연·정량 목표 측정용.** Claude API + LangChain tool calling (계획서 구조). `ANTHROPIC_API_KEY` 필요 |
+| `claude_agent` | **개발·시연·평가에 사용.** 로그인한 Claude Code 구독으로 Claude 가 MCP 를 통해 도구를 직접 호출. 한 턴 12~20초 |
 | `mock` | 키 없이 화면·흐름 개발. 규칙 기반이라 자유 질문 불가, 화면 번역 안 됨 |
-| `claude_agent` / `claude_cli` | 로그인한 Claude Code 구독으로 개발·테스트. 한 턴 10~20초 이상 걸려 응답 시간 측정에는 쓰지 않음 |
+| `claude_cli` | Claude 는 판단만 하고 도구 실행은 파이썬이 하는 방식. 느려서 참고용 |
+| `anthropic` | 공개 서비스로 운영할 때 전환할 방식. Claude API + LangChain tool calling, `ANTHROPIC_API_KEY` 필요 (대회 기간에는 미사용) |
 | `gemini` / `ollama` | 무료 LLM으로 실제 대화 확인 |
 
 `.env` 를 바꾸면 uvicorn 을 재시작해야 합니다. 서버 터미널과 `http://localhost:8000/api/health` 에서 현재 모드를 확인할 수 있습니다.
@@ -194,17 +195,17 @@ python -m eval.run_eval --mode agent --cases cases_holdout.jsonl
 - [x] FIXES.md 0~9번 코드 수정 (하얀 화면, 채점 미완료 판정, 지역명 정규화, 빈 응답·기록 순서 정리, 파일명 정리, D-day 라벨, 로드맵 다국어, 브리핑 6시간 제한·기록 복원, 도구 동시 호출 프롬프트)
 - [x] LLM 제공자 선택 기능 병합 시 되돌아간 FIXES 3·4·6·8·9번 다시 반영 (빈 응답 대체, 기록 병합, D-day 라벨, 브리핑 6시간 제한·force, 프롬프트 규칙)
 - [x] Windows 에서 claude CLI 시스템 프롬프트가 첫 줄만 전달되던 문제 수정 (`--system-prompt-file`)
-- [ ] (FIXES 4번) `anthropic` 모드로 "대화 → 새로고침(브리핑) → 다시 대화" 오류 없는지 확인
-- [ ] (FIXES 9번) `anthropic` 모드로 시연 시나리오 3회 실행해 `elapsed_ms` 표 정리 (참고: `claude_agent` 모드에서 로드맵 생성 한 턴 20.3초, 도구 9회)
+- [ ] (FIXES 4번) `claude_agent` 모드로 "대화 → 새로고침(브리핑) → 다시 대화" 오류 없는지 확인
+- [ ] (FIXES 9번) `claude_agent` 모드로 시연 시나리오 3회 실행해 `elapsed_ms` 표 정리 (참고: 로드맵 생성 한 턴 20.3초, 도구 9회. 10초를 넘으면 원인과 개선 방향을 보고서에 기재)
 - [ ] (FIXES 9번 검토, 팀 결정 필요) `build_roadmap`이 단계별 지원사업을 함께 붙여 반환하도록 할지
-- [ ] 시연 시나리오 1~6단계를 베트남어로 끝까지 한 번 성공 (`anthropic` 모드)
+- [ ] 시연 시나리오 1~6단계를 베트남어로 끝까지 한 번 성공 (`claude_agent` 모드)
 
 ## 출처 및 AI 활용 (별지2 작성용 메모)
 
 | 항목 | 내용 |
 |---|---|
-| LLM | Anthropic Claude (API, 시연용). 개발 중에는 Claude Code CLI(구독)로도 실행 |
-| 프레임워크 | LangChain (langchain-core, langchain-anthropic), FastAPI, React, Vite, python-docx, MCP(claude_agent 개발 모드) |
+| LLM | Anthropic Claude. 개발·시연·평가 모두 Claude Code(구독)를 MCP 로 연결한 `claude_agent` 모드로 수행. 공개 서비스로 운영할 때는 Claude API(`anthropic` 모드)로 전환하도록 설계 |
+| 프레임워크 | LangChain (langchain-core, langchain-anthropic), FastAPI, React, Vite, python-docx, MCP(`claude_agent` 모드의 도구 연결) |
 | AI 코딩 도구 | 프로젝트 뼈대 생성, 기능 추가·버그 수정(LLM 제공자 선택, 화면 디자인, 라이트/다크 모드, 자동 번역 등)에 Claude Code 사용 |
 | AI 생성 콘텐츠 | 화면 문구 영어·일본어·중국어 번역을 Claude로 자동 생성 (`backend/data/i18n/`). 간접 표현 평가 세트 100문장 초안을 Claude Code로 작성 (`backend/eval/cases.jsonl`, 팀 검토 필요) |
 | 데이터 | 지원사업: 팀이 경남 시·군 홈페이지에서 직접 조사 (각 항목 source_url 참조). 상담 창구: 기관 공식 페이지에서 확인 (`data/hotlines.json` 의 source_url·checked_at) |

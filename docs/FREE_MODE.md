@@ -9,7 +9,7 @@ API 결제 없이 개발·테스트할 수 있도록 LLM 제공자를 고르는 
 | `claude_cli` | 구독에 포함 | Claude Code CLI 로그인 | Claude는 판단만, 실행은 파이썬 |
 | `gemini` | 무료 구간 | Google AI Studio 키 | 실제 LLM으로 E2E 확인, 시연 |
 | `ollama` | 무료 | PC에 Ollama 설치, 성능 좋은 PC | 인터넷·키 없이 실제 LLM |
-| `anthropic` | 유료 | Claude 크레딧 + 키 | 계획서대로 Claude로 시연 |
+| `anthropic` | 유료 | Claude 크레딧 + 키 | 공개 서비스로 운영할 때 |
 
 키가 비어 있거나 예시 값(`sk-ant-api03-...`)이면 500 오류 대신 자동으로 mock으로 내려갑니다. 서버를 켤 때 터미널에 `LLM 제공자: mock`처럼 현재 모드가 찍히고, `http://localhost:8000/api/health`에서도 확인할 수 있습니다.
 
@@ -17,7 +17,7 @@ API 결제 없이 개발·테스트할 수 있도록 LLM 제공자를 고르는 
 
 1. **개발 기간 내내 `mock`**으로 작업합니다. 비용 0원, 응답도 즉시 옵니다.
 2. 기능이 모이면 **`claude_agent`(또는 `claude_cli`, `gemini`)로 하루 몇 번** 실제 대화를 돌려 프롬프트와 도구 설명을 다듬습니다.
-3. **시연영상·발표**는 실제 LLM으로 합니다. 결제가 가능해지면 `anthropic`, 아니면 `gemini`.
+3. **시연영상·발표**는 `claude_agent`(Claude)로 합니다. 이 프로젝트는 개발·시연·평가를 모두 이 모드로 했습니다.
 
 ## 1. mock 모드 (키 없음)
 
@@ -111,4 +111,4 @@ VS Code·터미널에서 쓰는 Claude Code에 로그인돼 있으면 그 구독
 
 ## 별지2(출처·AI 활용 신고서)에 적을 것
 
-실제로 쓴 제공자만 적습니다. 예: 개발 중 mock(팀 자체 규칙 기반, AI 아님), 시연 LLM은 Google Gemini API 또는 Anthropic Claude API. 개발계획서에 Claude로 적었는데 시연을 Gemini로 한다면, 완료보고서에 "비용 문제로 LLM 제공자를 교체할 수 있도록 설계했고 시연은 Gemini로 진행"처럼 이유를 밝혀 두는 게 좋습니다. 제공자 교체가 심사에 영향이 있는지는 대회 측에 확인하세요.
+실제로 쓴 제공자만 적습니다. 이 프로젝트는 개발·시연·평가를 모두 Anthropic Claude 를 Claude Code(구독) + MCP 로 연결한 `claude_agent` 모드로 했고, mock(팀 자체 규칙 기반, AI 아님)은 화면 개발에만 썼습니다. 공개 서비스로 운영할 때는 Claude API(`anthropic` 모드)로 전환하도록 설계했다고 함께 적습니다.
