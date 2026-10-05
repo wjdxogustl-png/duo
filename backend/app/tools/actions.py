@@ -2,7 +2,7 @@
 
 무엇을 제안할지는 LLM이 정하고, 이 코드는 카드가 엉뚱한 곳으로 연결되지 않게 검증만 한다.
 - say  : 누르면 message 가 사용자의 말로 전송된다 (실제 실행은 다음 턴에 에이전트가 도구로 한다)
-- call : 공식 상담 창구나 DB 에 있는 연락처로만 전화 연결
+- call : 공식 상담 창구(data/hotlines.json)나 DB 에 있는 연락처로만 전화 연결
 - link : DB 에 있는 지원사업 출처(source_url)로만 연결
 기억(Memory)은 바꾸지 않는다. 화면에 보여 줄 카드만 돌려준다.
 """
@@ -11,10 +11,10 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
+from .hotlines import load_hotlines
 from .programs import load_programs
 
 MAX_ACTIONS = 3
-HOTLINES = {"1345", "15771366", "129", "1350"}  # 시스템 프롬프트의 공식 상담 창구
 
 
 class Action(BaseModel):
@@ -36,7 +36,7 @@ def _digits(s: str | None) -> str:
 
 
 def _known_phones() -> set[str]:
-    phones = set(HOTLINES)
+    phones = {_digits(h["number"]) for h in load_hotlines()}
     for p in load_programs():
         for num in re.findall(r"\d[\d-]{1,}\d", p.get("contact") or ""):
             phones.add(_digits(num))

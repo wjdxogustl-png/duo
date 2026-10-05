@@ -19,6 +19,7 @@ from pydantic import BaseModel  # noqa: E402
 from . import agent, llm, memory, translate  # noqa: E402
 from .tools.dday import compute_dday  # noqa: E402
 from .tools import draft  # noqa: E402
+from .tools.hotlines import load_hotlines  # noqa: E402
 from .tools.programs import load_programs  # noqa: E402
 
 app = FastAPI(title="경남 이주민 능동 케어 에이전트")
@@ -128,6 +129,11 @@ def draft_docx(user_id: str, draft_id: str):
 @app.get("/api/programs")
 def programs():
     return load_programs()
+
+
+@app.get("/api/hotlines")
+def hotlines():
+    return load_hotlines()
 
 
 @app.get("/api/files/{name}")

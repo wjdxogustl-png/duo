@@ -1,0 +1,74 @@
+[
+  {
+    "number": "112",
+    "name": "경찰 신고",
+    "languages": ["한국어", "영어·중국어 통역 연결"],
+    "hours": "365일 24시간",
+    "when": "생명·안전이 위험할 때, 지금 폭행·범죄를 당하고 있을 때 (가장 먼저)",
+    "source_url": "https://www.koreajoongangdaily.com/korea/police-expand-english-chinese-interpretation-for-112-hotline/10191336",
+    "checked_at": "2026-10-05"
+  },
+  {
+    "number": "119",
+    "name": "119 구조·구급",
+    "languages": ["한국어", "제3자 통역 자원봉사 연결"],
+    "hours": "365일 24시간",
+    "when": "다치거나 아파서 응급 처치·구조가 필요할 때, 화재 (가장 먼저)",
+    "source_url": "https://www.incheon.go.kr/119/NE030401/2069199",
+    "checked_at": "2026-10-05"
+  },
+  {
+    "number": "1366",
+    "name": "여성긴급전화",
+    "languages": ["한국어"],
+    "hours": "365일 24시간",
+    "when": "가정폭력·성폭력·스토킹·교제폭력 피해, 긴급 보호가 필요할 때",
+    "source_url": "https://www.mogef.go.kr/sp/hrp/sp_hrp_f004.do",
+    "checked_at": "2026-10-05"
+  },
+  {
+    "number": "1577-1366",
+    "name": "다누리콜센터",
+    "languages": ["한국어", "영어", "중국어", "베트남어", "타갈로그어", "캄보디아어", "몽골어", "러시아어", "일본어", "태국어", "라오어", "우즈베크어", "네팔어"],
+    "hours": "365일 24시간",
+    "when": "다문화가족·이주여성의 폭력 피해, 부부·가족 갈등, 체류·생활 상담을 모국어로 받고 싶을 때",
+    "source_url": "https://www.mogef.go.kr/cc/dcc/cc_dcc_f001.do",
+    "checked_at": "2026-10-05"
+  },
+  {
+    "number": "1345",
+    "name": "외국인종합안내센터 (출입국·외국인 민원)",
+    "languages": ["한국어", "중국어", "영어", "베트남어", "태국어", "일본어", "몽골어", "인도네시아어", "프랑스어", "방글라데시어", "파키스탄어", "러시아어", "네팔어", "캄보디아어", "미얀마어", "독일어", "스페인어", "필리핀어", "아랍어", "스리랑카어"],
+    "hours": "평일 09:00~22:00 (18:00 이후는 한국어·영어·중국어)",
+    "when": "비자·체류 자격·출입국 민원",
+    "source_url": "https://immigration.go.kr/immigration/1530/subview.do",
+    "checked_at": "2026-10-05"
+  },
+  {
+    "number": "1350",
+    "name": "고용노동부 고객상담센터",
+    "languages": ["한국어", "영어·중국어 (ARS 외국어 상담)"],
+    "hours": "평일 09:00~18:00",
+    "when": "임금체불, 부당해고, 직장 내 괴롭힘 등 노동 문제",
+    "source_url": "https://1350.moel.go.kr/home/",
+    "checked_at": "2026-10-05"
+  },
+  {
+    "number": "1644-0644",
+    "name": "이주노동자 헬프라인 (Migrants Help Line)",
+    "languages": ["중국어", "몽골어", "태국어", "베트남어", "타갈로그어·영어", "인도네시아어", "스리랑카어", "캄보디아어", "러시아어·우즈베크어", "파키스탄어"],
+    "hours": "평일 09:00~18:00, 주말 13:00~19:00 (월요일·공휴일 휴무)",
+    "when": "외국인 근로자의 임금체불·산업재해·고용허가·폭력 등 고민을 모국어로 상담하고 싶을 때",
+    "source_url": "https://www.busan.go.kr/eng/bsnews01/797481",
+    "checked_at": "2026-10-05"
+  },
+  {
+    "number": "129",
+    "name": "보건복지상담센터",
+    "languages": ["한국어"],
+    "hours": "평일 09:00~18:00, 긴급복지·학대·정신건강 상담은 24시간",
+    "when": "당장 먹고 살 돈이 없을 때(긴급 생계·의료), 아동·노인 학대, 자살 위기",
+    "source_url": "https://www.129.go.kr/counsel/counsel01.do",
+    "checked_at": "2026-10-05"
+  }
+]

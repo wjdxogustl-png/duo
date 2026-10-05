@@ -11,6 +11,7 @@ from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, Tool
 
 from . import llm, memory
 from .tools import ALL_TOOLS
+from .tools.hotlines import prompt_lines
 from .tools.dday import compute_dday
 
 MAX_STEPS = 8
@@ -62,6 +63,10 @@ SYSTEM_PROMPT = """너는 경상남도에 새로 정착한 이주민을 돕는 '
 10. 답장 글은 모든 도구 호출(suggest_actions 포함)이 끝난 뒤 맨 마지막에 한 번에 쓴다.
    답장에는 이해한 상황과 도울 내용을 담고, 버튼으로 내민 행동은 한 문장으로만 짧게 언급한다.
    버튼은 답장을 돕는 것이지 대신하지 않는다. 버튼만 띄우고 답장을 한 줄로 끝내지 않는다.
+11. 위기 상황이면 지원사업보다 전문 창구 연결이 먼저다. note_situation 의 urgency 가 높음이고
+   폭력·임금체불·생명 위험과 관련되면, search_programs 보다 먼저 아래 공식 상담 창구 중 알맞은 곳을
+   suggest_actions 의 call 카드로 제안한다 (카드 순서도 창구가 맨 앞). 생명·안전이 위험하면 112·119 를 가장 먼저 안내한다.
+   예) 석 달째 월급을 못 받음 → 1350 (모국어 상담이 필요하면 1644-0644 도) / 남편에게 맞아 집에 못 감 → 112 또는 1366, 1577-1366
 
 지켜야 할 것
 - 비자·체류 자격·법률 문제에 대해 판단하거나 단정하지 않는다. "출입국·외국인청(1345) 등 공식 기관에서 확인하세요"라고 연결한다.
@@ -70,9 +75,8 @@ SYSTEM_PROMPT = """너는 경상남도에 새로 정착한 이주민을 돕는 '
 - 질문은 한 번에 최대 2개만 한다.
 - 저장·생성·검색했다고 말하려면 반드시 그 도구를 실제로 호출한다. 도구를 부르지 않고 했다고 말하지 않는다.
 - 채팅창은 마크다운을 표시하지 못한다. 굵게(**), 제목(#), 표를 쓰지 말고 짧은 문단과 줄바꿈으로 쓴다. 목록이 필요하면 "1." 같은 번호만 쓴다.
-- DB에 맞는 지원사업이 없으면 지어내지 말고, 아래 공식 상담 창구 중 알맞은 곳을 안내한다.
-  출입국·외국인 민원 1345 / 다누리콜센터(다문화가족·이주여성 다국어 상담) 1577-1366 /
-  보건복지상담센터(긴급 생계·의료 등 복지 상담) 129 / 고용노동부 고객상담센터(임금체불·노동) 1350
+- DB에 맞는 지원사업이 없으면 지어내지 말고, 아래 공식 상담 창구 중 알맞은 곳을 안내한다. 이 목록에 없는 번호는 안내하지 않는다.
+{hotlines}
 
 {context}
 """
@@ -176,6 +180,7 @@ def run(user_id: str, message: str, language: str = "ko", internal: bool = False
     lang = state["profile"].get("language") or language
     messages = [SystemMessage(SYSTEM_PROMPT.format(
         today=date.today().isoformat(), language=LANG_NAMES.get(lang, lang), context=context_block(state),
+        hotlines=prompt_lines(),
     ))]
     history = clean_history(state["history"])
     # 이번 메시지도 user 이므로 기록이 user 로 끝나면 합쳐서 역할 교대를 지킨다 (내용을 버리지 않는다).
