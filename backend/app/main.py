@@ -18,6 +18,7 @@ from pydantic import BaseModel  # noqa: E402
 
 from . import agent, llm, memory, translate  # noqa: E402
 from .tools.dday import compute_dday  # noqa: E402
+from .tools import draft  # noqa: E402
 from .tools.programs import load_programs  # noqa: E402
 
 app = FastAPI(title="경남 이주민 능동 케어 에이전트")
@@ -89,7 +90,7 @@ def briefing(user_id: str, language: str = "ko", force: bool = False):
 def state(user_id: str):
     s = memory.load(user_id)
     return {
-        **{k: s[k] for k in ("profile", "roadmap", "dday", "history", "situations")},
+        **{k: s[k] for k in ("profile", "roadmap", "dday", "history", "situations", "drafts")},
         "dday_label": compute_dday(s["dday"])["label"] if s["dday"] else None,
     }
 
@@ -98,6 +99,30 @@ def state(user_id: str):
 def reset(user_id: str):
     memory.reset(user_id)
     return {"ok": True}
+
+
+class DraftUpdate(BaseModel):
+    values: dict[str, str]  # 칸 key → 사용자가 고친 값
+
+
+@app.put("/api/drafts/{user_id}/{draft_id}")
+def save_draft(user_id: str, draft_id: str, req: DraftUpdate):
+    """화면에서 고친 신청서 초안을 저장한다. 고유식별정보는 지우고 removed_sensitive 로 알려 준다."""
+    memory.current_user.set(user_id)
+    try:
+        return draft.update_draft(draft_id, req.values)
+    except KeyError:
+        raise HTTPException(404, "초안을 찾을 수 없습니다.")
+
+
+@app.post("/api/drafts/{user_id}/{draft_id}/docx")
+def draft_docx(user_id: str, draft_id: str):
+    """저장된 초안을 Word 파일로 만든다. 제출은 사용자가 직접 한다."""
+    memory.current_user.set(user_id)
+    try:
+        return draft.draft_docx(draft_id)
+    except KeyError:
+        raise HTTPException(404, "초안을 찾을 수 없습니다.")
 
 
 @app.get("/api/programs")

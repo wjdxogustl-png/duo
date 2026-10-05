@@ -4,6 +4,7 @@
   python -m eval.run_eval --mode keyword          # 키워드 방식만 (LLM 호출 없음, 즉시)
   python -m eval.run_eval --mode both             # 둘 다. 에이전트는 .env 의 LLM_PROVIDER 로 실행
   python -m eval.run_eval --mode both --limit 10  # 앞의 10개만
+  python -m eval.run_eval --mode agent --cat 여러턴결합  # 한 유형만
 결과는 eval/results/ 에 JSON(전체 기록)과 Markdown(완료보고서용 표)으로 저장된다.
 
 채점: 에이전트가 이번 턴에 기억한 '열린 상황'의 필요 종류(note_situation)를 정답과 비교한다.
@@ -12,6 +13,9 @@
 """
 import argparse
 import json
+import re
+import sys
+import threading
 import time
 import uuid
 from collections import defaultdict
@@ -23,11 +27,16 @@ from dotenv import load_dotenv
 
 EVAL_DIR = Path(__file__).resolve().parent
 ACK = "네, 알겠어요."  # 여러 턴 사례에서 이전 턴의 에이전트 답장 자리 (내용으로 힌트를 주지 않는다)
+# 사용량 한도·과부하 오류: 사례 탓이 아니므로 채점하지 않고 멈춘 뒤 나중에 이어서 한다
+LIMIT_ERROR = re.compile(r"usage limit|rate limit|session limit|limit reached|hit your (?:\w+ )?limit|quota|overloaded|\b429\b|\b529\b",
+                         re.IGNORECASE)
 
 
-def load_cases(limit: int | None = None) -> list[dict]:
-    lines = (EVAL_DIR / "cases.jsonl").read_text(encoding="utf-8").splitlines()
+def load_cases(limit: int | None = None, cats: list[str] | None = None, file: str = "cases.jsonl") -> list[dict]:
+    lines = (EVAL_DIR / file).read_text(encoding="utf-8").splitlines()
     cases = [json.loads(line) for line in lines if line.strip()]
+    if cats:
+        cases = [c for c in cases if c["cat"] in cats]
     return cases[:limit] if limit else cases
 
 
@@ -83,6 +92,10 @@ def summarize(cases: list[dict], results: dict[str, list[dict]]) -> dict:
             by_cat[case["cat"]][1] += 1
         total = sum(v[0] for v in by_cat.values())
         summary[method] = {"total": [total, len(rows)], "by_cat": dict(by_cat)}
+        # generate_cases 로 만든 세트: 블라인드 재채점과 정답이 일치한 사례만 따로 집계
+        agreed = [r["correct"] for c, r in zip(cases, rows) if c.get("label_agree")]
+        if any("label_agree" in c for c in cases):
+            summary[method]["label_agreed"] = [sum(agreed), len(agreed)]
     return summary
 
 
@@ -108,6 +121,8 @@ def write_report(cases, results, summary, meta) -> Path:
     for cat in cats:
         lines.append(f"| {cat} | " + " | ".join(pct(*summary[m]["by_cat"].get(cat, [0, 0])) for m in methods) + " |")
     lines.append("| **전체** | " + " | ".join(f"**{pct(*summary[m]['total'])}**" for m in methods) + " |")
+    if "label_agreed" in summary[methods[0]]:
+        lines.append("| 정답 일치 사례만 | " + " | ".join(pct(*summary[m]["label_agreed"]) for m in methods) + " |")
     if "agent" in results:
         secs = [r["seconds"] for r in results["agent"] if "seconds" in r]
         errors = [r for r in results["agent"] if r.get("error")]
@@ -136,37 +151,68 @@ def main():
     p = argparse.ArgumentParser()
     p.add_argument("--mode", choices=["keyword", "agent", "both"], default="both")
     p.add_argument("--limit", type=int)
+    p.add_argument("--cat", action="append", help="이 유형만 실행 (여러 번 줄 수 있음, 예: --cat 여러턴결합)")
+    p.add_argument("--cases", default="cases.jsonl", help="eval 폴더의 사례 파일 (예: cases_holdout.jsonl)")
     p.add_argument("--workers", type=int, default=4, help="에이전트 동시 실행 수")
     args = p.parse_args()
 
     load_dotenv()
     from app import llm
-    cases = load_cases(args.limit)
-    meta = {"started": datetime.now().isoformat(timespec="seconds"), "provider": llm.provider_name()}
+    cases = load_cases(args.limit, args.cat, args.cases)
+    meta = {"started": datetime.now().isoformat(timespec="seconds"), "provider": llm.provider_name(),
+            "cases_file": args.cases}
     results: dict[str, list[dict]] = {}
 
     if args.mode in ("keyword", "both"):
         results["keyword"] = [run_keyword(c) for c in cases]
     if args.mode in ("agent", "both"):
+        # 이어서 실행: 끝난 사례는 진행 파일에 한 줄씩 남기고, 다시 실행하면 건너뛴다.
+        # 사용량 한도에 걸리면 남은 사례를 돌리지 않고 멈춘다(오류로 채점하지 않는다).
+        progress = EVAL_DIR / "results" / f"_progress_{Path(args.cases).stem}_{meta['provider']}.jsonl"
+        progress.parent.mkdir(exist_ok=True)
+        finished: dict[str, dict] = {}
+        if progress.exists():
+            for line in progress.read_text(encoding="utf-8").splitlines():
+                if line.strip():
+                    row = json.loads(line)
+                    finished[row.pop("case_id")] = row
+            print(f"이어서 실행: {len(finished)}개 완료됨, {len(cases) - len(finished)}개 남음", flush=True)
+        todo = [c for c in cases if c["id"] not in finished]
         run_id = uuid.uuid4().hex[:6]
-        done = 0
+        lock, stop = threading.Lock(), threading.Event()
 
         def one(c):
-            nonlocal done
+            if stop.is_set():
+                return
             r = run_agent(c, run_id)
-            done += 1
-            mark = "오류" if r.get("error") else ", ".join(r["predicted"]) or "(없음)"
-            print(f"[{done}/{len(cases)}] {c['id']} {r['seconds']}s → {mark}", flush=True)
-            return r
+            if r.get("error") and LIMIT_ERROR.search(r["error"]):
+                if not stop.is_set():
+                    print(f"사용량 한도로 멈춤: {r['error'][:150]}", flush=True)
+                stop.set()
+                return
+            with lock:
+                finished[c["id"]] = r
+                with progress.open("a", encoding="utf-8") as f:
+                    f.write(json.dumps({"case_id": c["id"], **r}, ensure_ascii=False) + "\n")
+                mark = "오류" if r.get("error") else ", ".join(r["predicted"]) or "(없음)"
+                print(f"[{len(finished)}/{len(cases)}] {c['id']} {r['seconds']}s → {mark}", flush=True)
 
         with ThreadPoolExecutor(args.workers) as pool:
-            results["agent"] = list(pool.map(one, cases))
+            list(pool.map(one, todo))
+
+        if len(finished) < len(cases):
+            print(f"\n중단됨: {len(finished)}/{len(cases)} 완료. 진행 상황은 {progress.name} 에 저장됐다. "
+                  "사용량이 돌아오면 같은 명령을 다시 실행하면 이어서 한다.", flush=True)
+            sys.exit(2)
+        results["agent"] = [finished[c["id"]] for c in cases]
 
     summary = summarize(cases, results)
     path = write_report(cases, results, summary, meta)
     for m, s in summary.items():
         print(f"{m}: {s['total'][0]}/{s['total'][1]}  " + "  ".join(f"{k} {v[0]}/{v[1]}" for k, v in s["by_cat"].items()))
     print(f"보고서: {path}")
+    if args.mode in ("agent", "both"):
+        progress.unlink(missing_ok=True)  # 보고서에 모두 들어갔으므로 진행 파일은 지운다
 
 
 if __name__ == "__main__":

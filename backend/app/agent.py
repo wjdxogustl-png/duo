@@ -28,6 +28,12 @@ SYSTEM_PROMPT = """너는 경상남도에 새로 정착한 이주민을 돕는 '
   예) "요즘 저녁에 일을 하나 더 해요" → 경제적 압박, 피로, 저녁 수업에 못 올 가능성
 - 아래 [기억하고 있는 상황]·[프로필]과 이어지는가? 예전에 들은 말과 지금 말을 합치면 새로 보이는 문제가 있는가?
   예) 예전 "아이가 6살이에요" + 지금 "다음 주부터 야간 근무예요" → 밤에 아이를 맡길 곳이 비는 문제
+  이전 말과 합칠 때는 지금 말의 겉 주제에서 멈추지 말고, 이전 말이 이 사람에게 어떤 조건을 만드는지 따라가 본다.
+  예) 고용허가·유학 등 체류 자격 + 폐업·이직·근무 시간 변화 → 직장 문제이면서 체류 자격 문제 (행정·체류)
+  예) 체류 기간이 정해져 있음 + 회사를 옮기고 싶음 → 옮기는 시기와 절차가 체류에 걸리는 문제 (행정·체류)
+  예) 한국어를 거의 못함 + 학교·병원·관공서에 가야 함 → 그 자리에서 말이 통하지 않는 문제 (언어)
+  예) 혼자 삶 + 다치거나 아픔 → 치료뿐 아니라 일상을 도와줄 사람이 없는 문제 (돌봄)
+  이렇게 합쳐서 보이는 필요는 겉으로 보이는 필요와 따로 note_situation 으로 기록한다.
 - 부정·반어·농담을 구분한다. "돈 걱정은 없어요, 시간이 문제죠"는 돈이 아니라 시간 문제다.
 - 확신이 낮으면 단정하지 말고, 짐작한 내용을 부드럽게 확인하는 질문을 한 번 한다.
 판단한 상황과 숨은 필요는 note_situation 으로 근거(사용자 원문)와 함께 기억한다. 해결됐거나 바뀌면 같은 id 로 갱신한다.
@@ -41,9 +47,21 @@ SYSTEM_PROMPT = """너는 경상남도에 새로 정착한 이주민을 돕는 '
    score_risk 결과의 missing 이 있으면 그 항목을 먼저 쉽게 되묻고, save_profile 로 저장한 뒤 다시 score_risk 를 호출한다.
 3. recommend_mentoring_first 가 true 면 멘토·상담(search_programs category=멘토링 또는 노동상담)을 먼저 제안한다.
 4. 로드맵 단계마다 search_programs 로 실제 지원사업을 찾아 연결한다. DB에 없는 사업을 지어내지 않는다.
-5. 신청서가 필요하면 필요한 값을 모두 확인한 뒤 generate_application_doc 을 호출하고 다운로드 링크를 안내한다.
+5. 사용자가 지원사업에 신청하고 싶어 하면 draft_application 으로 신청서 초안을 만든다. 초안은 화면에 보이고 사용자가 직접 고친다.
+   이름·연락처를 채팅으로 모으지 않는다. 외국인등록번호·여권번호·계좌번호는 묻지도 받지도 않는다.
+   제출은 사용자가 기관에 직접 한다고 안내하고, 대신 제출하겠다고 말하지 않는다.
 6. 사용자가 체류 종료일을 말하면 set_dday_reminder 로 저장한다.
 7. 서로 의존하지 않는 도구(예: 여러 단계의 search_programs)는 한 번에 함께 호출한다.
+8. save_profile · note_situation 결과에 pipeline 이 있으면, 바뀐 정보 때문에 정착 안정도·로드맵·지원사업이
+   이미 다시 계산되고 검증된 것이다. pipeline.summary 를 근거로 "무엇이 바뀌어서 무엇이 달라졌는지"를
+   사용자에게 쉬운 말로 설명한다 (예: 회사를 그만두셔서 로드맵에 취업 지원 단계를 넣었어요).
+   summary 에 없는 변화를 지어내지 않고, checks.no_match 분야는 공식 상담 창구로 안내한다.
+9. 사용자가 지금 바로 할 수 있는 다음 행동이 보이면, 다른 도구를 모두 부른 뒤 suggest_actions 로 1~3개를 버튼으로 내민다.
+   묻지 않았어도 판단한 상황에서 곧 필요해질 행동을 먼저 제안한다 (예: 신청서 초안 만들기, 체류 종료일 등록, 상담 창구 전화).
+   되묻는 질문이 있어도 지금 할 수 있는 행동(전화·신청 등)이 있으면 함께 제안한다. 할 수 있는 행동이 하나도 없을 때만 부르지 않는다.
+10. 답장 글은 모든 도구 호출(suggest_actions 포함)이 끝난 뒤 맨 마지막에 한 번에 쓴다.
+   답장에는 이해한 상황과 도울 내용을 담고, 버튼으로 내민 행동은 한 문장으로만 짧게 언급한다.
+   버튼은 답장을 돕는 것이지 대신하지 않는다. 버튼만 띄우고 답장을 한 줄로 끝내지 않는다.
 
 지켜야 할 것
 - 비자·체류 자격·법률 문제에 대해 판단하거나 단정하지 않는다. "출입국·외국인청(1345) 등 공식 기관에서 확인하세요"라고 연결한다.
@@ -133,6 +151,22 @@ def context_block(state: dict) -> str:
     return "\n".join(lines)
 
 
+def actions_of(trace: list[dict]) -> list[dict]:
+    """이번 턴의 마지막 suggest_actions 호출에서 검증을 통과한 카드(테스트 대상)."""
+    for c in reversed(trace):
+        if c["tool"] == "suggest_actions" and isinstance(c.get("result"), dict):
+            return c["result"].get("shown") or []
+    return []
+
+
+def draft_of(trace: list[dict]) -> dict | None:
+    """이번 턴에 만든 마지막 신청서 초안(테스트 대상)."""
+    for c in reversed(trace):
+        if c["tool"] == "draft_application" and isinstance(c.get("result"), dict) and c["result"].get("draft"):
+            return c["result"]["draft"]
+    return None
+
+
 def run(user_id: str, message: str, language: str = "ko", internal: bool = False) -> dict:
     """한 턴 실행. internal=True 면 사용자 메시지를 대화 기록에 남기지 않는다(능동 브리핑용)."""
     memory.current_user.set(user_id)
@@ -156,31 +190,32 @@ def run(user_id: str, message: str, language: str = "ko", internal: bool = False
     messages.append(HumanMessage(message_for_model))
 
     model, provider = llm.get_model(ALL_TOOLS)
-    trace, files = [], []
+    trace = []
     reply = ""
     if hasattr(model, "run_turn"):
         # claude_agent 모드: Claude Code가 MCP로 도구를 직접 실행하며 한 턴을 끝낸다
         reply, trace = model.run_turn(messages, user_id)
-        for c in trace:
-            r = c.get("result")
-            if c["tool"] == "generate_application_doc" and isinstance(r, dict) and r.get("download_url"):
-                files.append(r["download_url"])
     else:
-        reply = _run_loop(model, messages, trace, files)
+        reply = _run_loop(model, messages, trace)
     if not reply.strip():
         reply = FALLBACK_REPLY.get(lang, FALLBACK_REPLY["ko"])
+    actions = actions_of(trace)
+    draft = draft_of(trace)
 
     # 도구가 상태를 바꿨을 수 있으므로 다시 읽은 뒤 대화 기록만 추가 (빈 내용은 저장하지 않는다)
     state = memory.load()
     if not internal and message.strip():
         state["history"].append({"role": "user", "content": message})
-    state["history"].append({"role": "assistant", "content": reply})
+    # 액션 카드도 함께 저장해 새로고침 뒤에도 마지막 답장의 버튼이 다시 보이게 한다
+    state["history"].append({"role": "assistant", "content": reply, **({"actions": actions} if actions else {}),
+                             **({"draft_id": draft["id"]} if draft else {})})
     memory.save(state)
 
     return {
         "reply": reply,
         "trace": trace,
-        "files": files,
+        "actions": actions,
+        "draft": draft,
         "elapsed_ms": round((time.perf_counter() - started) * 1000),
         "provider": provider,
         "state": {
@@ -190,13 +225,17 @@ def run(user_id: str, message: str, language: str = "ko", internal: bool = False
     }
 
 
-def _run_loop(model, messages, trace, files) -> str:
-    """도구 호출 루프: 모델이 판단하고 파이썬이 도구를 실행한다."""
+def _run_loop(model, messages, trace) -> str:
+    """도구 호출 루프: 모델이 판단하고 파이썬이 도구를 실행한다.
+    도구를 부르기 전에 쓴 글도 모아 답장에 넣는다 (본문 → 도구 → 한 줄 순서로 써도 본문이 남게)."""
+    texts = []
     for _ in range(MAX_STEPS):
         ai: AIMessage = model.invoke(messages)
         messages.append(ai)
+        if _text_of(ai).strip():
+            texts.append(_text_of(ai).strip())
         if not ai.tool_calls:
-            return _text_of(ai)
+            return "\n\n".join(texts)
         for call in ai.tool_calls:
             t0 = time.perf_counter()
             try:
@@ -209,8 +248,6 @@ def _run_loop(model, messages, trace, files) -> str:
                 "result": json.loads(result) if result.startswith("{") else result,
                 "ms": round((time.perf_counter() - t0) * 1000),
             })
-            if call["name"] == "generate_application_doc" and '"download_url"' in result:
-                files.append(json.loads(result)["download_url"])
             messages.append(ToolMessage(result, tool_call_id=call["id"]))
     return "처리 단계가 너무 많아 멈췄습니다. 질문을 조금 나눠서 다시 말씀해 주세요."
 

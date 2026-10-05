@@ -17,8 +17,9 @@
 2. 정착 안정도 진단 — 점수가 기준에 못 미치면 멘토·상담 연결을 먼저 제안합니다
 3. 맞춤 정착 로드맵 — 체류 기간, 자녀, 직업 등에 맞춰 해야 할 일을 순서대로 만듭니다
 4. 경남 지원사업 연결 — 로드맵 단계마다 시·군 지원사업을 출처와 함께 찾아 줍니다
-5. 신청서 초안 작성 — 한국어 교실 신청서를 docx로 만들어 내려받을 수 있습니다
+5. 신청서 초안 작성 — 신청하고 싶은 지원사업의 신청서를 에이전트가 아는 정보로 미리 채워 두고, 화면에서 직접 고친 뒤 Word로 내려받거나 복사해 본인이 제출합니다
 6. 능동 케어 — 다시 방문하면 체류 종료 D-day와 남은 단계를 에이전트가 먼저 안내합니다
+7. 액션 카드 — 에이전트가 판단한 다음 행동(신청서 만들기, 상담 창구 전화, 지원사업 출처 열기)을 답장 아래 버튼으로 먼저 내밉니다
 
 화면 오른쪽 **에이전트 작업 기록**에서 에이전트가 어떤 도구를 왜 호출했는지 그대로 볼 수 있습니다.
 
@@ -27,7 +28,7 @@
 ```
 사용자 입력 → save_profile (정보 저장·되묻기) → score_risk (안정도 진단)
           → build_roadmap (로드맵) → search_programs (지원사업 연결)
-          → generate_application_doc (신청서) · set_dday_reminder (D-day)
+          → draft_application (신청서 초안) · set_dday_reminder (D-day)
 ```
 
 정확해야 하는 계산(로드맵 규칙, 점수, 날짜, 문서 채움)은 코드 도구가 맡고, LLM은 대화·판단·도구 선택·다국어 설명을 맡습니다.
@@ -44,7 +45,7 @@ Duo/
 │  │  ├─ mock_llm.py         키 없이 개발할 때 쓰는 규칙 기반 가짜 에이전트 (ko/en/vi)
 │  │  ├─ claude_cli_llm.py   Claude Code CLI 로 판단만 받는 모드 (개발용)
 │  │  ├─ claude_agent_llm.py Claude Code 가 MCP 로 도구를 직접 실행하는 모드 (개발용)
-│  │  ├─ mcp_server.py       claude_agent 모드용 MCP 서버 (도구 7개 노출)
+│  │  ├─ mcp_server.py       claude_agent 모드용 MCP 서버 (도구 9개 노출)
 │  │  ├─ translate.py        화면 문구 AI 자동 번역 + 캐시
 │  │  ├─ memory.py           사용자별 상태(프로필·로드맵·D-day·대화) JSON 저장
 │  │  └─ tools/
@@ -54,11 +55,13 @@ Duo/
 │  │     ├─ programs.py      search_programs       지원사업 DB 검색
 │  │     ├─ risk.py          score_risk            정착 안정도 채점 기준
 │  │     ├─ dday.py          set_dday_reminder     체류 종료일 D-day
-│  │     └─ document.py      generate_application_doc  신청서 초안 docx
+│  │     ├─ draft.py         draft_application     신청서 초안 (화면에서 고침, 고유식별정보 차단, docx)
+│  │     ├─ situation.py     note_situation        맥락으로 판단한 숨은 필요 기억
+│  │     └─ actions.py       suggest_actions       다음 행동 카드 (번호·주소는 DB·공식 창구만 허용)
 │  ├─ data/
-│  │  ├─ programs.json       팀 조사 지원사업 DB (현재 예시 2건 → 20건 이상으로 교체)
+│  │  ├─ programs.json       경남 지원사업 DB 26건 (공식 페이지·기사로 확인, 출처·확인일 포함)
 │  │  └─ i18n/               AI 번역된 화면 문구 캐시 (en/ja/zh, 원본 해시별)
-│  ├─ eval/                  간접 표현 평가 세트 100개 + 키워드 방식 비교 실행기
+│  ├─ eval/                  간접 표현 평가 세트 100개 + 처음 보는 holdout 999개 + 키워드 방식 비교 실행기
 │  └─ tests/                 도구·mock·번역·CLI 테스트 (정량 목표 증빙용)
 ├─ frontend/                 React (Vite)
 │  └─ src/
@@ -84,15 +87,16 @@ Duo/
 ## 구현 현황
 
 **완료**
-- [x] 도구 7개와 API (채팅, 능동 브리핑, 상태 조회·초기화, 지원사업, 신청서 다운로드)
+- [x] 도구 9개와 API (채팅, 능동 브리핑, 상태 조회·초기화, 지원사업, 신청서 다운로드)
 - [x] 다국어 채팅 화면, 로드맵·작업 기록 패널, 라이트·다크 모드
 - [x] 사용자별 메모리와 재방문 브리핑 (6시간 간격)
 - [x] LLM 제공자 전환, Claude Code를 MCP로 연결해 실제 도구 호출 확인
 - [x] 규칙 기반 도구 자동 테스트
+- [x] 액션 카드 (에이전트가 다음 행동을 버튼으로 제안)
+- [x] 지원사업 DB 26건 (창원·김해·양산·진주·거제·경남 전체)
 
 **진행 중**
-- [ ] 지원사업 DB 20건 이상 (현재 형식 예시 2건)
-- [ ] 신청서 docx 팀 템플릿 적용
+- [ ] 지원사업 DB 전화 확인 (번호가 출처마다 다른 2건은 `note` 참고), 통영·사천·밀양 등 나머지 시·군 추가
 - [ ] 영어·베트남어 번역 대조
 - [ ] 베트남어 시연 시나리오 전체 확인, 응답 시간 측정 (목표 10초 이내)
 
@@ -130,7 +134,7 @@ npm run dev                       # http://localhost:5173
 **테스트**
 ```bash
 cd backend
-python -m pytest -q             # Windows: 25 passed, 3 skipped (가짜 CLI 테스트는 macOS/Linux 전용)
+python -m pytest -q             # Windows: 61 passed, 5 skipped (가짜 CLI 테스트는 macOS/Linux 전용)
 ```
 
 ## 에이전트 동작 방식
@@ -139,7 +143,7 @@ python -m pytest -q             # Windows: 25 passed, 3 skipped (가짜 CLI 테�
 2. Claude가 정보를 `save_profile`로 저장하고, 빠진 항목을 되묻는다.
 3. `score_risk` → 기준 미달이면 멘토·상담 연계를 먼저 제안한다.
 4. `build_roadmap` → 단계별로 `search_programs`를 실행해 실제 지원사업을 연결한다.
-5. 신청 의사가 있으면 `generate_application_doc`으로 초안 docx를 만든다.
+5. 신청 의사가 있으면 `draft_application`으로 신청서 초안을 만든다. 사용자는 화면에서 빈칸(연락처 등)을 채우고 고친 뒤 Word로 내려받거나 복사해 직접 제출한다.
 6. 재방문 시 `/api/briefing`이 D-day와 남은 단계를 근거로 에이전트가 먼저 안내한다. 같은 사용자에게는 6시간에 한 번만 하고, 시연할 때는 `/api/briefing/{id}?force=true` 로 강제할 수 있다.
 
 정확해야 하는 계산(로드맵 규칙, 점수, 날짜, 문서 채움)은 코드가 담당하고, LLM은 대화·판단·설명·다국어를 담당한다.
@@ -163,12 +167,18 @@ python -m eval.run_eval --mode both      # 키워드 vs 에이전트 (.env 의 L
 
 결과는 `eval/results/` 에 Markdown 표(완료보고서용)와 JSON(사례별 판단·답장 전체)으로 저장된다.
 
+100문항에 맞춰 프롬프트를 고쳤기 때문에, 그 효과가 진짜인지는 처음 보는 사례로 따로 잰다. `eval/cases_holdout.jsonl`(999개)은 에이전트 프롬프트와 기존 사례를 보지 않는 모델이 만들고 블라인드로 다시 채점한 세트다 (`eval/generate_cases.py`). 사용량 한도에 걸리면 채점하지 않고 멈추며, 같은 명령을 다시 실행하면 이어서 한다.
+
+```bash
+python -m eval.run_eval --mode agent --cases cases_holdout.jsonl
+```
+
 ## 팀 작업 TODO
 
-- [ ] (조환성) `data/programs.json` 예시 2건 삭제, 실제 조사 사업 20건 이상 입력 (`source_url`, `checked_at` 필수)
+- [x] `data/programs.json` 실제 운영 사업 26건 입력 (`source_url`, `checked_at`, `verification` 포함)
+- [ ] (조환성) DB 사업 전화 확인 후 `verification` 갱신, 비어 있는 비용·반별 시간 보충
 - [ ] (정태현) `tools/roadmap.py` 규칙·문구를 조사 결과에 맞게 수정
 - [ ] (정태현) `tools/risk.py` 채점 기준 확정 → 발표자료에 표로 공개
-- [ ] (조환성) `data/templates/korean_class_application.docx` 팀 템플릿으로 교체 (`{{name}}` 등 자리표시자 유지). 지금은 없어서 코드가 기본 양식을 자동 생성함
 - [ ] (조환성) AI 번역된 화면 문구(`backend/data/i18n/*.json`) 대조 확인. 고칠 곳은 한국어 원본을 다듬거나 캐시 파일을 직접 수정
 - [ ] 테스트 케이스 추가 후 결과를 완료보고서에 표로 첨부
 - [x] FIXES.md 0~9번 코드 수정 (하얀 화면, 채점 미완료 판정, 지역명 정규화, 빈 응답·기록 순서 정리, 파일명 정리, D-day 라벨, 로드맵 다국어, 브리핑 6시간 제한·기록 복원, 도구 동시 호출 프롬프트)
@@ -190,6 +200,19 @@ python -m eval.run_eval --mode both      # 키워드 vs 에이전트 (.env 의 L
 | 데이터 | 지원사업: 팀이 경남 시·군 홈페이지에서 직접 조사 (각 항목 source_url 참조) |
 | 지도 | 대한민국 시·도 경계: [southkorea/southkorea-maps](https://github.com/southkorea/southkorea-maps) (KOSTAT 2013 행정구역, 단순화). 독도 위치는 좌표로 직접 표시 |
 | 태극기 | 「대한민국국기법」 시행령의 비율에 따라 SVG로 직접 작도 |
+
+## 신청서 초안의 개인정보·법적 안전장치
+
+학생 프로젝트로서 지킬 수 있는 범위를 코드로 강제한다 (`backend/app/tools/draft.py`).
+
+| 원칙 | 구현 |
+|---|---|
+| 대신 제출하지 않음 | 초안을 화면에 보여 주기만 한다. 제출은 사용자가 기관에 직접 한다 |
+| 고유식별정보를 받지 않음 (개인정보 보호법 제24조) | 외국인등록번호·주민등록번호·여권번호·계좌번호로 보이는 값은 저장 전에 지우고 사용자에게 알린다 |
+| 최소 수집 | 연락처는 채팅으로 묻지 않고 사용자가 초안에 직접 적는다 |
+| 지어내지 않음 | 프로필에 없는 칸은 비워 둔다. 신청 동기는 사용자가 말한 사실로만 쓴다 |
+| 알리고 지울 수 있음 | AI가 만든 초안이며 내용이 AI(Claude)에 전달된다는 안내를 화면과 파일에 표시. '처음부터'로 초안과 파일까지 삭제 |
+| 공식 서식을 베끼지 않음 | 기관 서식 대신 공통 항목만 담은 표 한 장으로 내려받는다 |
 
 ## 유의사항
 

@@ -27,7 +27,8 @@ def _path(user_id: str) -> Path:
 
 
 def empty_state() -> dict:
-    return {"profile": {}, "roadmap": [], "dday": None, "history": [], "last_briefing_at": None, "situations": []}
+    return {"profile": {}, "roadmap": [], "dday": None, "history": [], "last_briefing_at": None, "situations": [],
+            "drafts": []}
 
 
 def load(user_id: str | None = None) -> dict:
@@ -46,6 +47,10 @@ def save(state: dict, user_id: str | None = None) -> None:
 
 
 def reset(user_id: str) -> None:
+    """사용자 상태와, 그 사용자를 위해 만든 파일(신청서 초안 docx 등)을 모두 지운다."""
     p = _path(user_id)
     if p.exists():
         p.unlink()
+    if OUTPUT_DIR.exists():
+        for f in OUTPUT_DIR.glob(f"{_safe_id(user_id)}_*"):
+            f.unlink()

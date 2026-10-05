@@ -24,7 +24,13 @@ class SituationNote(BaseModel):
     """에이전트가 이해한 상황 하나. 새 상황이면 id 를 비우고, 기존 상황을 고치면 id 를 넣는다."""
 
     id: str | None = Field(None, description="기존 상황을 갱신·해결할 때 그 상황의 id. 새 상황이면 비운다")
-    need: NeedType = Field(description="이 상황에서 드러난 필요의 종류")
+    need: NeedType = Field(description=(
+        "이 상황에서 드러난 필요의 종류. 겉으로 보이는 주제가 아니라 실제로 도와야 할 문제로 고른다. "
+        "행정·체류: 비자·체류 자격·체류 기간, 직장 변경·폐업·근무 시간이 체류 조건에 걸리는 경우, 외국인등록·통장·휴대폰 개통 / "
+        "돌봄: 아이·환자·본인을 돌봐 줄 사람이 없거나 사라지는 경우 / "
+        "언어: 한국어가 부족해 상담·학교·병원 등 해야 할 일을 못 하게 되는 경우 / "
+        "직장문제: 임금체불·부당대우 등 지금 직장 안의 문제 / 일자리: 일을 잃거나 새로 구해야 함"
+    ))
     understanding: str = Field(description="에이전트가 이해한 상황과 숨은 필요 (사용자 말의 해석, 1~2문장, 응답 언어로)")
     evidence: str = Field(description="그렇게 판단한 근거가 된 사용자의 말 (원문 그대로 짧게 인용)")
     confidence: Literal["확인됨", "추정"] = Field(description="사용자가 직접 확인했으면 확인됨, 추론만 했으면 추정")

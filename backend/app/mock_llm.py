@@ -101,9 +101,8 @@ T = {
         "source": "     출처: {url}",
         "apply_hint": "한국어 교실 신청서가 필요하면 \"신청서 만들어 주세요\"라고 말씀해 주세요.",
         "official": "체류·비자 관련 내용은 출입국·외국인청(1345)에서 꼭 확인하세요.",
-        "doc_need": "신청서를 만들려면 {fields} 정보가 필요해요. 알려 주세요. (예: 이름은 응우옌반아, 010-1234-5678, 평일 저녁)",
-        "f_name": "이름", "f_phone": "연락처",
-        "doc_done": "신청서 초안을 만들었어요. 아래 버튼으로 내려받아 내용을 확인한 뒤 기관에 직접 제출해 주세요.",
+        "doc_none": "신청할 한국어 교실을 아직 찾지 못했어요. 사는 시·군을 먼저 알려 주세요.",
+        "doc_done": "신청서 초안을 아래에 만들었어요. 연락처 같은 빈칸은 직접 채우고, 틀린 곳은 고쳐 주세요. 다 되면 내려받거나 복사해서 기관에 직접 제출하시면 돼요.",
         "dday": "체류 종료일까지 {label}이에요. 다음 알림은 {next} 시점이에요.",
         "dday_no_next": "체류 종료일까지 {label}이에요.",
         "step_done": "좋아요! \"{title}\"을(를) 완료로 표시했어요.",
@@ -112,7 +111,6 @@ T = {
         "unknown": "(개발용 mock 모드라 자유로운 질문에는 답하지 못해요.)",
         "brief_hello": "다시 오셨네요! 반가워요.",
         "brief_next": "이어서 \"{title}\"부터 해 볼까요?",
-        "tbd": "미정",
     },
     "en": {
         "score": "Your settlement stability score is {score} (threshold {threshold}).",
@@ -123,9 +121,8 @@ T = {
         "source": "     Source: {url}",
         "apply_hint": "If you need a Korean class application, just say \"make an application\".",
         "official": "For stay or visa matters, please check with the Immigration Office (1345).",
-        "doc_need": "To make the application I need your {fields}. (e.g., My name is Nguyen Van A, 010-1234-5678, weekday evenings)",
-        "f_name": "name", "f_phone": "phone number",
-        "doc_done": "I made a draft application. Download it with the button below, check it, and submit it to the institution yourself.",
+        "doc_none": "I couldn't find a Korean class to apply for yet. Please tell me which city or county you live in first.",
+        "doc_done": "I made a draft application below. Fill in blanks like your phone number yourself and fix anything wrong. Then download or copy it and submit it to the institution yourself.",
         "dday": "Your stay ends in {label}. The next reminder is at {next}.",
         "dday_no_next": "Your stay ends in {label}.",
         "step_done": "Great! I marked \"{title}\" as done.",
@@ -134,7 +131,6 @@ T = {
         "unknown": "(Mock development mode can't answer free-form questions.)",
         "brief_hello": "Welcome back!",
         "brief_next": "Shall we continue with \"{title}\"?",
-        "tbd": "TBD",
     },
     "vi": {
         "score": "Điểm ổn định định cư của bạn là {score} điểm (mức chuẩn {threshold} điểm).",
@@ -145,9 +141,8 @@ T = {
         "source": "     Nguồn: {url}",
         "apply_hint": "Nếu cần đơn đăng ký lớp tiếng Hàn, hãy nói \"làm đơn đăng ký giúp tôi\".",
         "official": "Các vấn đề về cư trú, thị thực, hãy kiểm tra tại Cục Xuất nhập cảnh (1345).",
-        "doc_need": "Để làm đơn, mình cần {fields} của bạn. (ví dụ: Tên tôi là Nguyen Van A, 010-1234-5678, buổi tối ngày thường)",
-        "f_name": "tên", "f_phone": "số điện thoại",
-        "doc_done": "Mình đã tạo bản nháp đơn đăng ký. Hãy tải xuống bằng nút bên dưới, kiểm tra lại và tự nộp cho cơ quan.",
+        "doc_none": "Mình chưa tìm thấy lớp tiếng Hàn để đăng ký. Bạn cho mình biết bạn sống ở thành phố/huyện nào trước nhé.",
+        "doc_done": "Mình đã tạo bản nháp đơn ở bên dưới. Bạn tự điền chỗ trống như số điện thoại và sửa chỗ sai nhé. Xong thì tải xuống hoặc sao chép rồi tự nộp cho cơ quan.",
         "dday": "Còn {label} đến ngày hết hạn cư trú. Lần nhắc tiếp theo là {next}.",
         "dday_no_next": "Còn {label} đến ngày hết hạn cư trú.",
         "step_done": "Tốt lắm! Mình đã đánh dấu \"{title}\" là hoàn thành.",
@@ -156,7 +151,6 @@ T = {
         "unknown": "(Chế độ mock dùng để phát triển nên không trả lời được câu hỏi tự do.)",
         "brief_hello": "Chào mừng bạn quay lại!",
         "brief_next": "Mình tiếp tục với \"{title}\" nhé?",
-        "tbd": "Chưa quyết định",
     },
 }
 # TODO(조환성): 영어·베트남어 문구 대조 확인
@@ -261,11 +255,6 @@ def parse_profile(text: str, asked: str | None) -> dict:
     return upd
 
 
-def parse_phone(text: str) -> str | None:
-    m = re.search(r"(01[016789])[-\s]?(\d{3,4})[-\s]?(\d{4})", text)
-    return "-".join(m.groups()) if m else None
-
-
 def parse_time(text: str) -> str | None:
     m = re.search(r"평일\s*(저녁|오전|오후|낮)|주말\s*(오전|오후)?|저녁|weekday (evening|morning)s?|weekends?|evenings?|buổi tối( ngày thường)?|cuối tuần|buổi sáng", text, re.I)
     return m.group(0).strip() if m else None
@@ -353,32 +342,16 @@ class MockAgentModel:
                     calls.append(_call("update_roadmap_step", {"step_id": sid, "done": True}))
                     break
 
-        # 신청서 작성 흐름 (여러 턴에 걸쳐 이름·연락처를 모은다)
-        pending = state.get("mock_doc")
-        if pending is not None and not APPLY.search(human) and not parse_phone(human) and not upd.get("name"):
-            _set_state(mock_doc=None)  # 신청서 이야기를 그만두면 대기 상태를 푼다
-            pending = None
-        if APPLY.search(human) or pending is not None:
-            doc = dict(pending or {})
-            if upd.get("name"):
-                doc["name"] = upd["name"]
-            doc.setdefault("name", profile.get("name"))
-            doc["phone"] = parse_phone(human) or doc.get("phone")
-            doc["preferred_time"] = parse_time(human) or doc.get("preferred_time")
-            if doc.get("name") and doc.get("phone"):
-                calls.append(_call("generate_application_doc", {
-                    "name": doc["name"],
-                    "phone": doc["phone"],
-                    "institution": _korean_class_institution(profile.get("region")) or T[lang]["tbd"],
-                    "preferred_time": doc.get("preferred_time") or T[lang]["tbd"],
-                }))
-            else:
-                _set_state(mock_doc=doc)
-                if upd:
-                    calls.insert(0, _call("save_profile", upd))
-                if calls:
-                    return AIMessage("", tool_calls=calls)
-                return AIMessage(self._doc_need(doc, lang))
+        # 신청서 초안: 이름·연락처를 채팅으로 모으지 않고, 화면에 초안을 띄워 사용자가 직접 채운다
+        if APPLY.search(human):
+            program_id = _korean_class_program(upd.get("region") or profile.get("region"))
+            if program_id:
+                calls.append(_call("draft_application", {"program_id": program_id, "preferred_time": parse_time(human) or ""}))
+            if upd:
+                calls.insert(0, _call("save_profile", upd))
+            if calls:
+                return AIMessage("", tool_calls=calls)
+            return AIMessage(T[lang]["doc_none"])
 
         if upd:
             calls.insert(0, _call("save_profile", upd))
@@ -391,8 +364,7 @@ class MockAgentModel:
         called = set(results)
         t = T[lang]
 
-        if "generate_application_doc" in called:
-            _set_state(mock_doc=None)
+        if "draft_application" in called:
             return AIMessage(t["doc_done"])
 
         if "search_programs" in called:
@@ -410,9 +382,6 @@ class MockAgentModel:
                 if not s["done"] and s["category"] not in cats:
                     cats.append(s["category"])
             return AIMessage("", tool_calls=[_call("search_programs", {"region": region, "category": c}) for c in cats])
-
-        if state.get("mock_doc") is not None and "save_profile" in called:
-            return AIMessage(self._doc_need(state["mock_doc"], lang))
 
         return self._next_move(called, results, state, lang, understood=True)
 
@@ -489,13 +458,6 @@ class MockAgentModel:
         lines.append(t["brief_next"].format(title=_title(nxt, lang)) if nxt else t["all_done"])
         return "\n".join(lines)
 
-    @staticmethod
-    def _doc_need(doc, lang):
-        t = T[lang]
-        need = [t["f_name"]] if not doc.get("name") else []
-        if not doc.get("phone"):
-            need.append(t["f_phone"])
-        return t["doc_need"].format(fields=", ".join(need))
 
 
 # ---------------------------------------------------------------- 도우미
@@ -531,7 +493,9 @@ def _dday_text(r, lang):
     return t["dday_no_next"].format(label=r["label"])
 
 
-def _korean_class_institution(region):
+def _korean_class_program(region):
     from .tools.programs import search_programs
+    if not region:
+        return None
     found = search_programs(region=region, category="한국어교육")["programs"]
-    return found[0]["name"] if found else None
+    return found[0]["id"] if found else None

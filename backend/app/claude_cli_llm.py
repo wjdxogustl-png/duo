@@ -5,7 +5,7 @@ VS Code·터미널에 로그인한 Claude 구독으로 동작하므로 API 키�
 
 동작 방식
 - Claude Code의 내장 도구(Bash, 파일 편집 등)는 모두 끈다(--tools ""). Claude는 판단만 한다.
-- 우리 도구 7개의 설명과 대화 내용을 프롬프트로 넘기고, Claude가 JSON으로
+- 우리 도구(app/tools)의 설명과 대화 내용을 프롬프트로 넘기고, Claude가 JSON으로
   {"tool_calls": [...]} 또는 {"reply": "..."} 를 답하게 한다.
 - 도구 실행은 지금처럼 agent.py 루프의 파이썬 코드가 한다. 그래서 배시 보안 문제가 없다.
 """
@@ -61,12 +61,20 @@ def _tool_specs(tools) -> str:
     specs = []
     for t in tools:
         schema = t.tool_call_schema.model_json_schema() if hasattr(t, "tool_call_schema") else {}
-        specs.append({
+        spec = {
             "name": t.name,
             "description": t.description,
             "args": {k: _simplify(v) for k, v in schema.get("properties", {}).items()},
             "required": schema.get("required", []),
-        })
+        }
+        # 중첩 스키마(suggest_actions 의 Action 등): args 의 $ref 가 가리키는 정의도 함께 넘긴다
+        if "$defs" in schema:
+            spec["$defs"] = {
+                name: {"properties": {k: _simplify(v) for k, v in d.get("properties", {}).items()},
+                       "required": d.get("required", [])}
+                for name, d in schema["$defs"].items()
+            }
+        specs.append(spec)
     return "\n".join(json.dumps(s, ensure_ascii=False) for s in specs)
 
 

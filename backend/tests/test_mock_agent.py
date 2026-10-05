@@ -12,8 +12,6 @@ def mock_env(tmp_path, monkeypatch):
     monkeypatch.setenv("LLM_PROVIDER", "mock")
     monkeypatch.setattr(memory, "USERS_DIR", tmp_path / "users")
     monkeypatch.setattr(memory, "OUTPUT_DIR", tmp_path / "output")
-    monkeypatch.setattr("app.tools.document.OUTPUT_DIR", tmp_path / "output")
-    monkeypatch.setattr("app.tools.document.TEMPLATE_PATH", tmp_path / "tpl.docx")
 
 
 def tools_of(r):
@@ -47,11 +45,12 @@ def test_vietnamese_scenario_end_to_end():
     assert tools_of(r) == ["set_dday_reminder"]
     assert r["state"]["dday"] == "2027-01-01"
 
-    r = agent.run(u, "Làm đơn đăng ký lớp tiếng Hàn giúp tôi")
-    assert "generate_application_doc" not in tools_of(r)   # 이름·연락처를 먼저 묻는다
-    r = agent.run(u, "Tên tôi là Nguyen Van A, 010-1234-5678, buổi tối ngày thường")
-    assert "generate_application_doc" in tools_of(r)
-    assert r["files"] and r["files"][0].startswith("/api/files/")
+    r = agent.run(u, "Làm đơn đăng ký lớp tiếng Hàn giúp tôi, buổi tối ngày thường")
+    assert tools_of(r) == ["draft_application"]          # 이름·연락처를 채팅으로 모으지 않고 바로 초안
+    fields = {f["key"]: f["value"] for f in r["draft"]["fields"]}
+    assert fields["region"] == "김해" and fields["months_in_korea"] == "2개월"
+    assert fields["phone"] == ""                         # 연락처는 사용자가 화면에서 직접
+    assert fields["preferred_time"] == "buổi tối ngày thường"
 
     b = agent.briefing(u, "vi")
     assert b["trace"] == [] and "D-" in b["reply"]

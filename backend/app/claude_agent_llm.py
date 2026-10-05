@@ -2,7 +2,7 @@
 
 claude_cli 모드와의 차이
 - claude_cli  : Claude는 판단만 하고, 도구 실행은 우리 파이썬 루프(agent.py)가 한다.
-- claude_agent: Claude Code가 MCP 서버(app/mcp_server.py)로 도구 7개에 직접 연결되어,
+- claude_agent: Claude Code가 MCP 서버(app/mcp_server.py)로 우리 도구에 직접 연결되어,
                 도구 선택·실행·결과 확인·다음 행동을 스스로 반복한 뒤 최종 답만 돌려준다.
 
 안전장치
@@ -28,7 +28,7 @@ log = logging.getLogger("settle-agent")
 AGENT_NOTE = """
 
 ## 도구 사용
-너에게는 settle 서버의 도구 7개(mcp__settle__save_profile 등)가 연결되어 있다. 위 행동 원칙에 따라 직접 호출하라.
+너에게는 settle 서버의 도구들(mcp__settle__save_profile 등)가 연결되어 있다. 위 행동 원칙에 따라 직접 호출하라.
 서로 의존하지 않는 도구는 한 번에 함께 호출하라.
 모든 도구 실행을 마친 뒤, 사용자에게 보여 줄 최종 답장만 출력하라. 도구 이름이나 내부 과정은 답장에 쓰지 않는다.
 """
@@ -155,4 +155,18 @@ def _parse_stream(proc, trace_file: Path) -> tuple[str, list[dict]]:
                     except ValueError:
                         pending[block["tool_use_id"]]["result"] = text
     log.info("claude_agent 도구 호출: %s", [t["tool"] for t in trace])
-    return (result.get("result") or "").strip(), trace
+    return _reply_text(events) or (result.get("result") or "").strip(), trace
+
+
+def _reply_text(events: list[dict]) -> str:
+    """한 턴 동안 모델이 쓴 글을 모두 이어 붙인다(테스트 대상).
+    result 에는 마지막 도구 호출 뒤의 글만 담겨서, 본문을 쓰고 도구(예: suggest_actions)를 부른 뒤
+    한 줄만 덧붙이면 본문이 사라진다."""
+    texts = []
+    for e in events:
+        if e.get("type") != "assistant":
+            continue
+        for block in (e.get("message") or {}).get("content") or []:
+            if isinstance(block, dict) and block.get("type") == "text" and block.get("text", "").strip():
+                texts.append(block["text"].strip())
+    return "\n\n".join(texts)
