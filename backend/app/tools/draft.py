@@ -102,7 +102,7 @@ def draft_application(program_id: str, preferred_time: str = "", motivation: str
     fields = build_fields(state["profile"], program, *cleaned)
     draft = {
         "id": uuid.uuid4().hex[:8],
-        "program": {k: program.get(k) for k in ("id", "name", "contact", "how_to_apply", "source_url", "address")},
+        "program": {k: program.get(k) for k in ("id", "name", "contact", "how_to_apply", "source_url", "address", "schedule")},
         "fields": fields,
         "notices": NOTICES,
         "created_at": datetime.now().isoformat(timespec="seconds"),

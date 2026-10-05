@@ -351,12 +351,18 @@ function DraftCard({ draft, userId, t }) {
   const [status, setStatus] = useState("");
   const [busy, setBusy] = useState(false);
   const p = draft.program;
+  // 칸 이름·도움말은 화면 언어로 보여 주고, 다른 언어일 때는 기관 서식과 맞춰 볼 수 있게 한국어 칸 이름도 함께 둔다.
+  // 칸 안의 값과 복사·Word 내용은 기관에 내는 것이라 한국어 그대로 둔다
+  const label = (f) => t.draftFields[f.key] || f.label;
+  const hint = (f) =>
+    f.key === "preferred_time" && p.schedule ? t.draftSchedule.replace("{schedule}", p.schedule) : t.draftHints[f.key] ?? f.hint;
 
   // 고친 값을 서버에 저장한다. 서버가 고유식별정보를 지웠으면 화면 값도 맞추고 알려 준다
   async function save() {
     const res = await api.saveDraft(userId, draft.id, values);
     setValues(Object.fromEntries(res.draft.fields.map((f) => [f.key, f.value])));
-    setStatus(res.removed_sensitive.length ? t.draftRemoved.replace("{items}", res.removed_sensitive.join(", ")) : t.draftSaved);
+    const removed = res.removed_sensitive.map((k) => t.draftSensitive[k] || k);
+    setStatus(removed.length ? t.draftRemoved.replace("{items}", removed.join(", ")) : t.draftSaved);
     return res.draft;
   }
 
@@ -391,15 +397,19 @@ function DraftCard({ draft, userId, t }) {
         <strong>{t.draftFor.replace("{name}", p.name)}</strong>
       </div>
       <p className="draft-hint">{t.draftHint}</p>
+      {t.draftKoreanNote !== KO.draftKoreanNote && <p className="draft-hint">{t.draftKoreanNote}</p>}
       <div className="draft-fields">
         {draft.fields.map((f) => {
           const Input = f.multiline ? "textarea" : "input";
           return (
             <label key={f.key} className={f.multiline ? "wide" : ""}>
-              <span>{f.label}</span>
+              <span>
+                {label(f)}
+                {label(f) !== f.label && <small className="draft-ko"> · {f.label}</small>}
+              </span>
               <Input
                 value={values[f.key]}
-                placeholder={f.hint}
+                placeholder={hint(f)}
                 rows={f.multiline ? 3 : undefined}
                 className={values[f.key] ? "" : "empty"}
                 onChange={(e) => setValues((v) => ({ ...v, [f.key]: e.target.value }))}
