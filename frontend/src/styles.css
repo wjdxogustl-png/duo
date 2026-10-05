@@ -124,6 +124,7 @@ select { padding: 8px 10px; border-radius: 10px; border: 1px solid var(--line); 
 .composer { display: flex; gap: 8px; padding: 12px; border-top: 1px solid var(--line); }
 .composer input { flex: 1; min-width: 0; padding: 11px 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg); }
 .composer input:focus { background: var(--surface); border-color: var(--accent); outline: none; box-shadow: 0 0 0 3px var(--accent-soft); }
+.privacy-note { margin: 0; padding: 0 14px 10px; font-size: 11.5px; line-height: 1.45; color: var(--muted); }
 
 /* 오른쪽 패널 */
 .side { display: flex; flex-direction: column; gap: 16px; min-height: 0; overflow-y: auto; }

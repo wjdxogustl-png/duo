@@ -215,6 +215,7 @@ export default function App() {
             <input id="message" value={input} onChange={(e) => setInput(e.target.value)} placeholder={t.placeholder} />
             <button disabled={busy}>{t.send}</button>
           </form>
+          <p className="privacy-note">{t.privacyNote}</p>
         </section>
 
         <aside className="side">
